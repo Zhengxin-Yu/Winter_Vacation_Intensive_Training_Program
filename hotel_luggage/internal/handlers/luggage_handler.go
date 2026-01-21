@@ -58,3 +58,43 @@ func CreateLuggage(c *gin.Context) {
 		"retrieval_code": item.RetrievalCode,
 	})
 }
+
+// QueryLuggageByUserInfo 按用户信息查询寄存记录
+// GET /storage/search?guest_name=...&contact_phone=...
+func QueryLuggageByUserInfo(c *gin.Context) {
+	guestName := c.Query("guest_name")
+	contactPhone := c.Query("contact_phone")
+
+	items, err := services.FindLuggageByUserInfo(guestName, contactPhone)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "query luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "query luggage success",
+		"items":   items,
+	})
+}
+
+// QueryLuggageByCode 按取件码查询寄存记录
+// GET /storage/by-code?code=XXXX
+func QueryLuggageByCode(c *gin.Context) {
+	code := c.Query("code")
+	item, err := services.FindLuggageByCode(code)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "query luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "query luggage success",
+		"item":    item,
+	})
+}

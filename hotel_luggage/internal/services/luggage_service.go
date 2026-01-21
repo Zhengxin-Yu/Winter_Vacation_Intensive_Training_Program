@@ -13,15 +13,15 @@ import (
 
 // CreateLuggageRequest 创建行李寄存的业务输入
 type CreateLuggageRequest struct {
-	GuestName     string
-	ContactPhone  string
-	ContactEmail  string
+	GuestName    string
+	ContactPhone string
+	ContactEmail string
 	Description  string
-	Quantity      int
-	SpecialNotes  string
-	StoreroomID   int64
-	StoredBy      int64
-	QRCodeURL     string
+	Quantity     int
+	SpecialNotes string
+	StoreroomID  int64
+	StoredBy     int64
+	QRCodeURL    string
 }
 
 // CreateLuggage 生成寄存记录并自动生成取件码
@@ -97,6 +97,29 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 	}
 
 	if err := repositories.CreateLuggage(&item); err != nil {
+		return models.LuggageItem{}, err
+	}
+	return item, nil
+}
+
+// FindLuggageByUserInfo 按客人姓名/电话查询寄存记录
+func FindLuggageByUserInfo(guestName, contactPhone string) ([]models.LuggageItem, error) {
+	if guestName == "" && contactPhone == "" {
+		return nil, errors.New("guest_name and contact_phone cannot both be empty")
+	}
+	return repositories.FindLuggageByUserInfo(guestName, contactPhone)
+}
+
+// FindLuggageByCode 按取件码查询寄存记录
+func FindLuggageByCode(code string) (models.LuggageItem, error) {
+	if code == "" {
+		return models.LuggageItem{}, errors.New("code is empty")
+	}
+	item, err := repositories.FindLuggageByCode(code)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("luggage not found")
+		}
 		return models.LuggageItem{}, err
 	}
 	return item, nil

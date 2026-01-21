@@ -27,6 +27,19 @@ func SetupRouter() *gin.Engine {
 
 	// 行李寄存接口：生成寄存记录与取件码
 	r.POST("/storage", handlers.CreateLuggage)
+	// 查看寄存接口：按用户信息查询
+	r.GET("/storage/search", handlers.QueryLuggageByUserInfo)
+	// 查看寄存接口：按取件码查询
+	r.GET("/storage/by-code", handlers.QueryLuggageByCode)
+
+	// 寄存室管理接口
+	r.GET("/storerooms", handlers.ListStorerooms)
+	r.POST("/storerooms", handlers.CreateStoreroom)
+	r.DELETE("/storerooms/:id", handlers.DeleteStoreroom)
+	r.PUT("/storerooms/:id/status", handlers.UpdateStoreroomStatus)
+
+	// 行李迁移接口
+	r.POST("/storerooms/migrate", handlers.MigrateLuggage)
 
 	return r
 }
