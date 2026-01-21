@@ -105,7 +105,7 @@ func QueryLuggageByCode(c *gin.Context) {
 func RetrieveLuggage(c *gin.Context) {
 	var req struct {
 		Code        string `json:"code" binding:"required"`         // 取件码
-		RetrievedBy int64  `json:"retrieved_by" binding:"required"` // 操作员ID
+		RetrievedBy string `json:"retrieved_by" binding:"required"` // 操作员用户名
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -125,9 +125,10 @@ func RetrieveLuggage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "retrieve luggage success",
-		"luggage_id": item.ID,
-		"status":     item.Status,
+		"message":       "retrieve luggage success",
+		"luggage_id":    item.ID,
+		"status":        item.Status,
+		"retrieved_by":  req.RetrievedBy,
 	})
 }
 
@@ -447,5 +448,26 @@ func BindLuggage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "bind luggage success",
+	})
+}
+
+// ListHistoryByGuest 查询取件历史（按客人姓名/手机号）
+// GET /storage/history/by-guest?guest_name=...&contact_phone=...
+func ListHistoryByGuest(c *gin.Context) {
+	guestName := c.Query("guest_name")
+	contactPhone := c.Query("contact_phone")
+
+	items, err := services.ListHistoryByGuest(guestName, contactPhone)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get history failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get history success",
+		"items":   items,
 	})
 }

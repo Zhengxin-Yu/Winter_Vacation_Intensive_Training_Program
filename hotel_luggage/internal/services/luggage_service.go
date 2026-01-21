@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"hotel_luggage/internal/models"
 	"hotel_luggage/internal/repositories"
@@ -131,12 +132,20 @@ func FindLuggageByCode(code string) (models.LuggageItem, error) {
 }
 
 // RetrieveLuggage 取件：根据取件码更新状态与取件人/时间
-func RetrieveLuggage(code string, retrievedBy int64) (models.LuggageItem, error) {
+func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageItem, error) {
 	if code == "" {
 		return models.LuggageItem{}, errors.New("code is empty")
 	}
-	if retrievedBy <= 0 {
-		return models.LuggageItem{}, errors.New("invalid retrieved_by")
+	if retrievedByUsername == "" {
+		return models.LuggageItem{}, errors.New("retrieved_by is empty")
+	}
+
+	user, err := repositories.GetUserByUsername(retrievedByUsername)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("user not found")
+		}
+		return models.LuggageItem{}, err
 	}
 
 	item, err := repositories.FindLuggageByCode(code)
@@ -150,13 +159,37 @@ func RetrieveLuggage(code string, retrievedBy int64) (models.LuggageItem, error)
 		return models.LuggageItem{}, errors.New("luggage is not in stored status")
 	}
 
-	if err := repositories.UpdateLuggageRetrieved(item.ID, retrievedBy); err != nil {
+	if err := repositories.UpdateLuggageRetrieved(item.ID, user.ID); err != nil {
 		return models.LuggageItem{}, err
 	}
 
-	// 返回最新状态（简单更新本地对象）
-	item.Status = "retrieved"
-	item.RetrievedBy = &retrievedBy
+	// 写入取件历史
+	history := models.LuggageHistory{
+		LuggageID:     item.ID,
+		GuestName:     item.GuestName,
+		ContactPhone:  item.ContactPhone,
+		ContactEmail:  item.ContactEmail,
+		Description:   item.Description,
+		Quantity:      item.Quantity,
+		SpecialNotes:  item.SpecialNotes,
+		StoreroomID:   item.StoreroomID,
+		RetrievalCode: item.RetrievalCode,
+		QRCodeURL:     item.QRCodeURL,
+		Status:        "retrieved",
+		StoredBy:      item.StoredBy,
+		RetrievedBy:   user.ID,
+		StoredAt:      item.StoredAt,
+		RetrievedAt:   time.Now(),
+	}
+	if err := repositories.CreateLuggageHistory(&history); err != nil {
+		return models.LuggageItem{}, err
+	}
+
+	// 已取件的行李从数据库中删除（历史已保留）
+	if err := repositories.DeleteLuggageByID(item.ID); err != nil {
+		return models.LuggageItem{}, err
+	}
+
 	return item, nil
 }
 
@@ -320,4 +353,12 @@ func BindLuggageToUser(luggageID int64, userID int64) error {
 	}
 
 	return repositories.BindLuggageToUser(item.ID, userID)
+}
+
+// ListHistoryByGuest 按客人姓名/手机号查询取件历史
+func ListHistoryByGuest(guestName, contactPhone string) ([]models.LuggageHistory, error) {
+	if guestName == "" && contactPhone == "" {
+		return nil, errors.New("guest_name and contact_phone cannot both be empty")
+	}
+	return repositories.ListHistoryByGuest(guestName, contactPhone)
 }

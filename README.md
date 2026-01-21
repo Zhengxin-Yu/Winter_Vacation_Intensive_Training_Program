@@ -72,6 +72,11 @@ go run ./cmd
 - `POST /users` 创建用户
 - `POST /login` 登录
 
+角色说明：
+- `admin` 管理者
+- `staff` 员工
+- `guest` 客人
+
 ### 行李寄存
 - `POST /storage` 创建寄存记录
 - `POST /storage/retrieve` 取件
@@ -87,6 +92,7 @@ go run ./cmd
 - `GET /storage/detail` 按 ID 查询详情
 - `GET /storage/detail/by-code` 按取件码查询详情
 - `GET /storage/detail/by-phone` 按手机号查询详情
+- `GET /storage/history/by-guest` 按客人姓名/手机号查询取件历史
 
 ### 取件码
 - `GET /pickup-codes` 按用户查询取件码列表
@@ -123,16 +129,21 @@ curl -X POST http://localhost:8080/storerooms ^
 
 ### 行李寄存
 ```bat
-curl -X POST http://localhost:8080/storage ^
-  -H "Content-Type: application/json" ^
-  -d "{\"guest_name\":\"张三\",\"contact_phone\":\"13800000000\",\"description\":\"黑色行李箱\",\"quantity\":1,\"storeroom_id\":1,\"stored_by\":1}"
+  curl -X POST http://localhost:8080/storage ^
+    -H "Content-Type: application/json" ^
+    -d "{\"guest_name\":\"张三\",\"contact_phone\":\"13800000000\",\"description\":\"黑色行李箱\",\"quantity\":1,\"storeroom_id\":1,\"stored_by\":1}"
 ```
 
 ### 取件
 ```bat
 curl -X POST http://localhost:8080/storage/retrieve ^
   -H "Content-Type: application/json" ^
-  -d "{\"code\":\"取件码\",\"retrieved_by\":1}"
+  -d "{\"code\":\"取件码\",\"retrieved_by\":\"用户名\"}"
+```
+
+### 查询取件历史（按客人姓名/手机号）
+```bat
+curl "http://localhost:8080/storage/history/by-guest?guest_name=张三&contact_phone=13800000000"
 ```
 
 ### 查看二维码

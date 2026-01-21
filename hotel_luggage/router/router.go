@@ -55,6 +55,8 @@ func SetupRouter() *gin.Engine {
 	r.PUT("/storage/:id/code", handlers.UpdateLuggageCode)
 	// 行李绑定到用户
 	r.POST("/storage/bind", handlers.BindLuggage)
+	// 取件历史查询
+	r.GET("/storage/history/by-guest", handlers.ListHistoryByGuest)
 	// 二维码展示接口
 	r.GET("/qr/:code", handlers.GetQRCode)
 

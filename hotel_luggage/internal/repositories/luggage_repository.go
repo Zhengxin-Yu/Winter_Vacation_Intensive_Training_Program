@@ -132,6 +132,14 @@ func BindLuggageToUser(id int64, userID int64) error {
 		Update("stored_by", userID).Error
 }
 
+// DeleteLuggageByID 删除行李记录
+func DeleteLuggageByID(id int64) error {
+	if DB == nil {
+		return errors.New("db not initialized")
+	}
+	return DB.Delete(&models.LuggageItem{}, id).Error
+}
+
 // ListLuggageByUser 查询某用户创建的寄存单列表
 // status 可选：stored/retrieved/migrated
 func ListLuggageByUser(userID int64, status string) ([]models.LuggageItem, error) {

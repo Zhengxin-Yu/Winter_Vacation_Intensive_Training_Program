@@ -7,6 +7,7 @@ import (
 	"hotel_luggage/internal/repositories"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // CreateUser 创建用户：
@@ -19,6 +20,13 @@ func CreateUser(username, password, role string) (models.User, error) {
 	}
 	if role == "" {
 		role = "staff"
+	}
+
+	// 用户名唯一校验
+	if _, err := repositories.GetUserByUsername(username); err == nil {
+		return models.User{}, errors.New("username already exists")
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return models.User{}, err
 	}
 
 	// 生成 bcrypt 哈希
