@@ -57,6 +57,7 @@ func CreateLuggage(c *gin.Context) {
 		"message":        "create luggage success",
 		"luggage_id":     item.ID,
 		"retrieval_code": item.RetrievalCode,
+		"qrcode_url":     item.QRCodeURL,
 	})
 }
 
@@ -255,5 +256,86 @@ func ListLuggageDetailByPhone(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "get luggage detail success",
 		"items":   items,
+	})
+}
+
+// ListPickupCodesByUser 查看取件码列表
+// GET /pickup-codes?user_id=1&status=stored
+func ListPickupCodesByUser(c *gin.Context) {
+	userIDStr := c.Query("user_id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "user_id is required",
+		})
+		return
+	}
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil || userID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid user_id",
+		})
+		return
+	}
+
+	status := c.Query("status")
+	items, err := services.ListPickupCodesByUser(userID, status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get pickup codes failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 只返回取件码相关字段，避免暴露不必要数据
+	result := make([]gin.H, 0, len(items))
+	for _, item := range items {
+		result = append(result, gin.H{
+			"luggage_id":     item.ID,
+			"guest_name":     item.GuestName,
+			"contact_phone":  item.ContactPhone,
+			"retrieval_code": item.RetrievalCode,
+			"status":         item.Status,
+			"stored_at":      item.StoredAt,
+			"retrieved_at":   item.RetrievedAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get pickup codes success",
+		"items":   result,
+	})
+}
+
+// ListPickupCodesByPhone 按客人手机号查询取件码列表
+// GET /pickup-codes/by-phone?contact_phone=...&status=stored
+func ListPickupCodesByPhone(c *gin.Context) {
+	phone := c.Query("contact_phone")
+	status := c.Query("status")
+	items, err := services.ListPickupCodesByPhone(phone, status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get pickup codes failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	result := make([]gin.H, 0, len(items))
+	for _, item := range items {
+		result = append(result, gin.H{
+			"luggage_id":     item.ID,
+			"guest_name":     item.GuestName,
+			"contact_phone":  item.ContactPhone,
+			"retrieval_code": item.RetrievalCode,
+			"status":         item.Status,
+			"stored_at":      item.StoredAt,
+			"retrieved_at":   item.RetrievedAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get pickup codes success",
+		"items":   result,
 	})
 }

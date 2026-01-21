@@ -43,6 +43,12 @@ func SetupRouter() *gin.Engine {
 	r.GET("/storage/detail/by-code", handlers.GetLuggageDetailByCode)
 	// 寄存单详情：按手机号查询
 	r.GET("/storage/detail/by-phone", handlers.ListLuggageDetailByPhone)
+	// 查看取件码页面：取件码列表
+	r.GET("/pickup-codes", handlers.ListPickupCodesByUser)
+	// 查看取件码页面：按手机号查询
+	r.GET("/pickup-codes/by-phone", handlers.ListPickupCodesByPhone)
+	// 二维码展示接口
+	r.GET("/qr/:code", handlers.GetQRCode)
 
 	// 寄存室管理接口
 	r.GET("/storerooms", handlers.ListStorerooms)

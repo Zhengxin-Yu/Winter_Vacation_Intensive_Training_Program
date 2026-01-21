@@ -133,3 +133,31 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 	err := query.Order("stored_at DESC").Find(&items).Error
 	return items, err
 }
+
+// ListPickupCodesByUser 按用户查询取件码列表（从行李表中提取）
+func ListPickupCodesByUser(userID int64, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{}).Where("stored_by = ?", userID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}
+
+// ListPickupCodesByPhone 按手机号查询取件码列表
+func ListPickupCodesByPhone(contactPhone, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{}).Where("contact_phone = ?", contactPhone)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}

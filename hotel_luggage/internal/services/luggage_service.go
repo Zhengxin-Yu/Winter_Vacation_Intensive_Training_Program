@@ -96,6 +96,11 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		StoredBy:      req.StoredBy,
 	}
 
+	// 如果未传入二维码URL，则默认指向二维码展示接口
+	if item.QRCodeURL == "" {
+		item.QRCodeURL = fmt.Sprintf("/qr/%s", code)
+	}
+
 	if err := repositories.CreateLuggage(&item); err != nil {
 		return models.LuggageItem{}, err
 	}
@@ -207,4 +212,20 @@ func ListLuggageDetailByPhone(contactPhone string) ([]models.LuggageItem, error)
 		return nil, errors.New("contact_phone is empty")
 	}
 	return repositories.ListLuggageByGuest("", contactPhone, "")
+}
+
+// ListPickupCodesByUser 获取用户取件码列表
+func ListPickupCodesByUser(userID int64, status string) ([]models.LuggageItem, error) {
+	if userID <= 0 {
+		return nil, errors.New("invalid user id")
+	}
+	return repositories.ListPickupCodesByUser(userID, status)
+}
+
+// ListPickupCodesByPhone 按手机号查询取件码列表
+func ListPickupCodesByPhone(contactPhone, status string) ([]models.LuggageItem, error) {
+	if contactPhone == "" {
+		return nil, errors.New("contact_phone is empty")
+	}
+	return repositories.ListPickupCodesByPhone(contactPhone, status)
 }
