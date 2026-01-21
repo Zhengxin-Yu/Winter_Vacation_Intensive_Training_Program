@@ -124,3 +124,33 @@ func FindLuggageByCode(code string) (models.LuggageItem, error) {
 	}
 	return item, nil
 }
+
+// RetrieveLuggage 取件：根据取件码更新状态与取件人/时间
+func RetrieveLuggage(code string, retrievedBy int64) (models.LuggageItem, error) {
+	if code == "" {
+		return models.LuggageItem{}, errors.New("code is empty")
+	}
+	if retrievedBy <= 0 {
+		return models.LuggageItem{}, errors.New("invalid retrieved_by")
+	}
+
+	item, err := repositories.FindLuggageByCode(code)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("luggage not found")
+		}
+		return models.LuggageItem{}, err
+	}
+	if item.Status != "stored" {
+		return models.LuggageItem{}, errors.New("luggage is not in stored status")
+	}
+
+	if err := repositories.UpdateLuggageRetrieved(item.ID, retrievedBy); err != nil {
+		return models.LuggageItem{}, err
+	}
+
+	// 返回最新状态（简单更新本地对象）
+	item.Status = "retrieved"
+	item.RetrievedBy = &retrievedBy
+	return item, nil
+}

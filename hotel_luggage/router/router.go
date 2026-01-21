@@ -31,6 +31,8 @@ func SetupRouter() *gin.Engine {
 	r.GET("/storage/search", handlers.QueryLuggageByUserInfo)
 	// 查看寄存接口：按取件码查询
 	r.GET("/storage/by-code", handlers.QueryLuggageByCode)
+	// 取件接口：通过取件码完成取件
+	r.POST("/storage/retrieve", handlers.RetrieveLuggage)
 
 	// 寄存室管理接口
 	r.GET("/storerooms", handlers.ListStorerooms)

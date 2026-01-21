@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"hotel_luggage/internal/models"
+
+	"gorm.io/gorm"
 )
 
 // CreateLuggage 创建行李寄存记录
@@ -81,4 +83,18 @@ func UpdateLuggageStoreroom(id int64, toStoreroomID int64) error {
 	return DB.Model(&models.LuggageItem{}).
 		Where("id = ?", id).
 		Update("storeroom_id", toStoreroomID).Error
+}
+
+// UpdateLuggageRetrieved 更新行李为已取件状态
+func UpdateLuggageRetrieved(id int64, retrievedBy int64) error {
+	if DB == nil {
+		return errors.New("db not initialized")
+	}
+	return DB.Model(&models.LuggageItem{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"status":       "retrieved",
+			"retrieved_by": retrievedBy,
+			"retrieved_at": gorm.Expr("NOW()"),
+		}).Error
 }
