@@ -16,8 +16,8 @@ type LuggageHistory struct {
 	RetrievalCode string    `gorm:"column:retrieval_code;size:8;not null"` // 取件码
 	QRCodeURL     string    `gorm:"column:qr_code_url;size:255"`           // 二维码URL
 	Status        string    `gorm:"column:status;size:20;not null"`        // 状态（retrieved）
-	StoredBy      int64     `gorm:"column:stored_by;not null"`             // 存放操作员ID
-	RetrievedBy   int64     `gorm:"column:retrieved_by;not null"`          // 取件操作员ID
+	StoredBy      string    `gorm:"column:stored_by;size:50;not null"`     // 存放操作员用户名
+	RetrievedBy   string    `gorm:"column:retrieved_by;size:50;not null"`  // 取件操作员用户名
 	StoredAt      time.Time `gorm:"column:stored_at;not null"`             // 存放时间
 	RetrievedAt   time.Time `gorm:"column:retrieved_at;not null"`          // 取件时间
 	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime"`      // 记录创建时间

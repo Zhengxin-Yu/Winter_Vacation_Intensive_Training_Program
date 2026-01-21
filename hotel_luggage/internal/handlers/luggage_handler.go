@@ -11,14 +11,14 @@ import (
 
 // CreateLuggageRequest 行李寄存请求结构体
 type CreateLuggageRequest struct {
-	GuestName    string `json:"guest_name" binding:"required"`   // 客人姓名
+	GuestName    string `json:"guest_name" binding:"required"`   // 客人用户名
 	ContactPhone string `json:"contact_phone"`                   // 联系电话
 	ContactEmail string `json:"contact_email"`                   // 联系邮箱
 	Description  string `json:"description"`                     // 行李描述
 	Quantity     int    `json:"quantity"`                        // 行李数量
 	SpecialNotes string `json:"special_notes"`                   // 特殊备注
 	StoreroomID  int64  `json:"storeroom_id" binding:"required"` // 寄存室ID
-	StoredBy     int64  `json:"stored_by" binding:"required"`    // 操作员ID
+	StaffName    string `json:"staff_name" binding:"required"`   // 操作员用户名
 	QRCodeURL    string `json:"qr_code_url"`                     // 二维码URL（可选）
 }
 
@@ -42,7 +42,7 @@ func CreateLuggage(c *gin.Context) {
 		Quantity:     req.Quantity,
 		SpecialNotes: req.SpecialNotes,
 		StoreroomID:  req.StoreroomID,
-		StoredBy:     req.StoredBy,
+		StaffName:    req.StaffName,
 		QRCodeURL:    req.QRCodeURL,
 	})
 	if err != nil {
@@ -133,26 +133,18 @@ func RetrieveLuggage(c *gin.Context) {
 }
 
 // ListLuggageByUser 获取用户寄存单列表
-// GET /storage/list?user_id=1&status=stored
+// GET /storage/list?username=xxx&status=stored
 func ListLuggageByUser(c *gin.Context) {
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
+	username := c.Query("username")
+	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "user_id is required",
-		})
-		return
-	}
-
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil || userID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid user_id",
+			"message": "username is required",
 		})
 		return
 	}
 
 	status := c.Query("status")
-	items, err := services.ListLuggageByUser(userID, status)
+	items, err := services.ListLuggageByUser(username, status)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list luggage failed",
@@ -261,25 +253,18 @@ func ListLuggageDetailByPhone(c *gin.Context) {
 }
 
 // ListPickupCodesByUser 查看取件码列表
-// GET /pickup-codes?user_id=1&status=stored
+// GET /pickup-codes?username=xxx&status=stored
 func ListPickupCodesByUser(c *gin.Context) {
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
+	username := c.Query("username")
+	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "user_id is required",
-		})
-		return
-	}
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil || userID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid user_id",
+			"message": "username is required",
 		})
 		return
 	}
 
 	status := c.Query("status")
-	items, err := services.ListPickupCodesByUser(userID, status)
+	items, err := services.ListPickupCodesByUser(username, status)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "get pickup codes failed",
@@ -427,8 +412,8 @@ func UpdateLuggageCode(c *gin.Context) {
 // POST /storage/bind
 func BindLuggage(c *gin.Context) {
 	var req struct {
-		LuggageID int64 `json:"luggage_id" binding:"required"` // 行李ID
-		UserID    int64 `json:"user_id" binding:"required"`    // 用户ID
+		LuggageID int64  `json:"luggage_id" binding:"required"` // 行李ID
+		Username  string `json:"username" binding:"required"`   // 用户名
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -438,7 +423,7 @@ func BindLuggage(c *gin.Context) {
 		return
 	}
 
-	if err := services.BindLuggageToUser(req.LuggageID, req.UserID); err != nil {
+	if err := services.BindLuggageToUser(req.LuggageID, req.Username); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "bind luggage failed",
 			"error":   err.Error(),

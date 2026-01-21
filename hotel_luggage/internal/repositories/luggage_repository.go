@@ -86,7 +86,7 @@ func UpdateLuggageStoreroom(id int64, toStoreroomID int64) error {
 }
 
 // UpdateLuggageRetrieved 更新行李为已取件状态
-func UpdateLuggageRetrieved(id int64, retrievedBy int64) error {
+func UpdateLuggageRetrieved(id int64, retrievedBy string) error {
 	if DB == nil {
 		return errors.New("db not initialized")
 	}
@@ -123,13 +123,13 @@ func UpdateLuggageCode(id int64, code string) error {
 }
 
 // BindLuggageToUser 绑定行李到用户（更新 stored_by）
-func BindLuggageToUser(id int64, userID int64) error {
+func BindLuggageToUser(id int64, username string) error {
 	if DB == nil {
 		return errors.New("db not initialized")
 	}
 	return DB.Model(&models.LuggageItem{}).
 		Where("id = ?", id).
-		Update("stored_by", userID).Error
+		Update("stored_by", username).Error
 }
 
 // DeleteLuggageByID 删除行李记录
@@ -142,12 +142,12 @@ func DeleteLuggageByID(id int64) error {
 
 // ListLuggageByUser 查询某用户创建的寄存单列表
 // status 可选：stored/retrieved/migrated
-func ListLuggageByUser(userID int64, status string) ([]models.LuggageItem, error) {
+func ListLuggageByUser(username string, status string) ([]models.LuggageItem, error) {
 	if DB == nil {
 		return nil, errors.New("db not initialized")
 	}
 	var items []models.LuggageItem
-	query := DB.Model(&models.LuggageItem{}).Where("stored_by = ?", userID)
+	query := DB.Model(&models.LuggageItem{}).Where("stored_by = ?", username)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -176,12 +176,12 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 }
 
 // ListPickupCodesByUser 按用户查询取件码列表（从行李表中提取）
-func ListPickupCodesByUser(userID int64, status string) ([]models.LuggageItem, error) {
+func ListPickupCodesByUser(username string, status string) ([]models.LuggageItem, error) {
 	if DB == nil {
 		return nil, errors.New("db not initialized")
 	}
 	var items []models.LuggageItem
-	query := DB.Model(&models.LuggageItem{}).Where("stored_by = ?", userID)
+	query := DB.Model(&models.LuggageItem{}).Where("stored_by = ?", username)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}

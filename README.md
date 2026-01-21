@@ -78,13 +78,13 @@ go run ./cmd
 - `guest` 客人
 
 ### 行李寄存
-- `POST /storage` 创建寄存记录
-- `POST /storage/retrieve` 取件
+- `POST /storage` 创建寄存记录（需要 guest_name + staff_name）
+- `POST /storage/retrieve` 取件（retrieved_by 为用户名）
 - `GET /storage/search` 按姓名/手机号查询
 - `GET /storage/by-code` 按取件码查询
 - `PUT /storage/:id` 修改寄存信息
 - `PUT /storage/:id/code` 修改取件码
-- `POST /storage/bind` 行李绑定到用户
+- `POST /storage/bind` 行李绑定到用户（用户名）
 
 ### 寄存单
 - `GET /storage/list` 按用户查询列表
@@ -95,7 +95,7 @@ go run ./cmd
 - `GET /storage/history/by-guest` 按客人姓名/手机号查询取件历史
 
 ### 取件码
-- `GET /pickup-codes` 按用户查询取件码列表
+- `GET /pickup-codes` 按用户名查询取件码列表
 - `GET /pickup-codes/by-phone` 按手机号查询取件码列表
 
 ### 寄存室管理
@@ -131,7 +131,7 @@ curl -X POST http://localhost:8080/storerooms ^
 ```bat
   curl -X POST http://localhost:8080/storage ^
     -H "Content-Type: application/json" ^
-    -d "{\"guest_name\":\"张三\",\"contact_phone\":\"13800000000\",\"description\":\"黑色行李箱\",\"quantity\":1,\"storeroom_id\":1,\"stored_by\":1}"
+    -d "{\"guest_name\":\"guest_user\",\"staff_name\":\"staff_user\",\"contact_phone\":\"13800000000\",\"description\":\"黑色行李箱\",\"quantity\":1,\"storeroom_id\":1}"
 ```
 
 ### 取件

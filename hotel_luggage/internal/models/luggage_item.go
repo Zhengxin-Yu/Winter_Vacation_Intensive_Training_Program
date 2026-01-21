@@ -16,8 +16,8 @@ type LuggageItem struct {
 	RetrievalCode string     `gorm:"column:retrieval_code;size:8;unique;not null"`                                       // 取回码
 	QRCodeURL     string     `gorm:"column:qr_code_url;size:255"`                                                        // 二维码URL
 	Status        string     `gorm:"column:status;type:enum('stored','retrieved','migrated');default:'stored';not null"` // 行李状态
-	StoredBy      int64      `gorm:"column:stored_by;not null"`                                                          // 存放操作员ID（外键）
-	RetrievedBy   *int64     `gorm:"column:retrieved_by"`                                                                // 取回操作员ID（可为空）
+	StoredBy      string     `gorm:"column:stored_by;size:50;not null"`                                                  // 存放操作员用户名
+	RetrievedBy   *string    `gorm:"column:retrieved_by;size:50"`                                                        // 取回操作员用户名（可为空）
 	RetrievedAt   *time.Time `gorm:"column:retrieved_at"`                                                                // 取回时间（可为空）
 	StoredAt      time.Time  `gorm:"column:stored_at;autoCreateTime"`                                                    // 存放时间
 	UpdatedAt     time.Time  `gorm:"column:updated_at;autoUpdateTime"`                                                   // 更新时间

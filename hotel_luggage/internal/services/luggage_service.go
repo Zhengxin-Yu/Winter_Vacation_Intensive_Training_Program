@@ -21,7 +21,7 @@ type CreateLuggageRequest struct {
 	Quantity     int
 	SpecialNotes string
 	StoreroomID  int64
-	StoredBy     int64
+	StaffName    string
 	QRCodeURL    string
 }
 
@@ -33,11 +33,33 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 	if req.StoreroomID <= 0 {
 		return models.LuggageItem{}, errors.New("invalid storeroom id")
 	}
-	if req.StoredBy <= 0 {
-		return models.LuggageItem{}, errors.New("invalid stored_by")
+	if req.StaffName == "" {
+		return models.LuggageItem{}, errors.New("staff_name is empty")
 	}
 	if req.Quantity <= 0 {
 		req.Quantity = 1
+	}
+
+	guest, err := repositories.GetUserByUsername(req.GuestName)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("guest not found")
+		}
+		return models.LuggageItem{}, err
+	}
+	if guest.Role != "guest" {
+		return models.LuggageItem{}, errors.New("guest_name is not a guest user")
+	}
+
+	staff, err := repositories.GetUserByUsername(req.StaffName)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("staff not found")
+		}
+		return models.LuggageItem{}, err
+	}
+	if staff.Role != "staff" && staff.Role != "admin" {
+		return models.LuggageItem{}, errors.New("staff_name is not staff/admin")
 	}
 
 	// 校验寄存室是否存在且启用
@@ -94,7 +116,7 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		RetrievalCode: code,
 		QRCodeURL:     req.QRCodeURL,
 		Status:        "stored",
-		StoredBy:      req.StoredBy,
+		StoredBy:      req.StaffName,
 	}
 
 	// 如果未传入二维码URL，则默认指向二维码展示接口
@@ -147,6 +169,9 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		}
 		return models.LuggageItem{}, err
 	}
+	if user.Role != "staff" && user.Role != "admin" {
+		return models.LuggageItem{}, errors.New("retrieved_by is not staff/admin")
+	}
 
 	item, err := repositories.FindLuggageByCode(code)
 	if err != nil {
@@ -159,7 +184,7 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		return models.LuggageItem{}, errors.New("luggage is not in stored status")
 	}
 
-	if err := repositories.UpdateLuggageRetrieved(item.ID, user.ID); err != nil {
+	if err := repositories.UpdateLuggageRetrieved(item.ID, user.Username); err != nil {
 		return models.LuggageItem{}, err
 	}
 
@@ -177,7 +202,7 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		QRCodeURL:     item.QRCodeURL,
 		Status:        "retrieved",
 		StoredBy:      item.StoredBy,
-		RetrievedBy:   user.ID,
+		RetrievedBy:   user.Username,
 		StoredAt:      item.StoredAt,
 		RetrievedAt:   time.Now(),
 	}
@@ -194,11 +219,11 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 }
 
 // ListLuggageByUser 获取用户寄存单列表
-func ListLuggageByUser(userID int64, status string) ([]models.LuggageItem, error) {
-	if userID <= 0 {
-		return nil, errors.New("invalid user id")
+func ListLuggageByUser(username string, status string) ([]models.LuggageItem, error) {
+	if username == "" {
+		return nil, errors.New("username is empty")
 	}
-	return repositories.ListLuggageByUser(userID, status)
+	return repositories.ListLuggageByUser(username, status)
 }
 
 // ListLuggageByGuest 按客人姓名/手机号查询寄存单列表
@@ -248,11 +273,11 @@ func ListLuggageDetailByPhone(contactPhone string) ([]models.LuggageItem, error)
 }
 
 // ListPickupCodesByUser 获取用户取件码列表
-func ListPickupCodesByUser(userID int64, status string) ([]models.LuggageItem, error) {
-	if userID <= 0 {
-		return nil, errors.New("invalid user id")
+func ListPickupCodesByUser(username string, status string) ([]models.LuggageItem, error) {
+	if username == "" {
+		return nil, errors.New("username is empty")
 	}
-	return repositories.ListPickupCodesByUser(userID, status)
+	return repositories.ListPickupCodesByUser(username, status)
 }
 
 // ListPickupCodesByPhone 按手机号查询取件码列表
@@ -281,6 +306,16 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 
 	updates := map[string]interface{}{}
 	if req.GuestName != nil {
+		guest, err := repositories.GetUserByUsername(*req.GuestName)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("guest not found")
+			}
+			return err
+		}
+		if guest.Role != "guest" {
+			return errors.New("guest_name is not a guest user")
+		}
 		updates["guest_name"] = *req.GuestName
 	}
 	if req.ContactPhone != nil {
@@ -336,9 +371,9 @@ func UpdateLuggageCode(id int64, code string) error {
 }
 
 // BindLuggageToUser 绑定行李到用户（按行李ID）
-func BindLuggageToUser(luggageID int64, userID int64) error {
-	if luggageID <= 0 || userID <= 0 {
-		return errors.New("invalid luggage_id or user_id")
+func BindLuggageToUser(luggageID int64, username string) error {
+	if luggageID <= 0 || username == "" {
+		return errors.New("invalid luggage_id or user_name")
 	}
 
 	item, err := repositories.GetLuggageByID(luggageID)
@@ -352,7 +387,7 @@ func BindLuggageToUser(luggageID int64, userID int64) error {
 		return errors.New("luggage is not in stored status")
 	}
 
-	return repositories.BindLuggageToUser(item.ID, userID)
+	return repositories.BindLuggageToUser(item.ID, username)
 }
 
 // ListHistoryByGuest 按客人姓名/手机号查询取件历史
