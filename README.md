@@ -13,6 +13,9 @@
 - 寄存室管理（列表/创建/删除/状态更新）
 - 行李迁移（更新寄存室 + 迁移日志）
 - 二维码生成与展示（PNG）
+- 首页功能入口（接口清单）
+- 修改寄存信息/取件码
+- 行李绑定（将行李绑定到用户）
 
 ## 环境依赖
 - Go 1.20+
@@ -63,6 +66,7 @@ go run ./cmd
 
 ### 基础
 - `GET /ping` 健康检查
+- `GET /home` 首页功能入口
 
 ### 用户
 - `POST /users` 创建用户
@@ -73,6 +77,9 @@ go run ./cmd
 - `POST /storage/retrieve` 取件
 - `GET /storage/search` 按姓名/手机号查询
 - `GET /storage/by-code` 按取件码查询
+- `PUT /storage/:id` 修改寄存信息
+- `PUT /storage/:id/code` 修改取件码
+- `POST /storage/bind` 行李绑定到用户
 
 ### 寄存单
 - `GET /storage/list` 按用户查询列表
@@ -94,6 +101,9 @@ go run ./cmd
 
 ### 二维码
 - `GET /qr/:code` 生成并返回二维码 PNG
+
+### 前端测试页
+- `frontend_testing/index.html` 用于简单接口测试
 
 ## 测试示例
 

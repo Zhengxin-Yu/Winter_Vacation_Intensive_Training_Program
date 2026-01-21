@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>酒店行李寄存系统 - 前端测试</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; }
+      h1 { margin-bottom: 12px; }
+      button { margin: 6px 6px 6px 0; }
+      pre { background: #f6f6f6; padding: 12px; border-radius: 6px; }
+      .row { margin-bottom: 12px; }
+      input { margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>前端测试页（仅调试）</h1>
+    <div class="row">
+      <button id="btnHome">GET /home</button>
+      <button id="btnPing">GET /ping</button>
+    </div>
+    <div class="row">
+      <input id="codeInput" placeholder="取件码，例如 Z75BDSRH" />
+      <button id="btnQR">打开二维码</button>
+    </div>
+    <pre id="output">点击按钮后显示结果...</pre>
+
+    <script>
+      const api = "http://localhost:8080";
+      const output = document.getElementById("output");
+
+      async function getJSON(path) {
+        const res = await fetch(api + path);
+        const data = await res.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      }
+
+      document.getElementById("btnHome").onclick = () => getJSON("/home");
+      document.getElementById("btnPing").onclick = () => getJSON("/ping");
+      document.getElementById("btnQR").onclick = () => {
+        const code = document.getElementById("codeInput").value.trim();
+        if (!code) {
+          output.textContent = "请输入取件码";
+          return;
+        }
+        window.open(api + "/qr/" + code, "_blank");
+      };
+    </script>
+  </body>
+</html>

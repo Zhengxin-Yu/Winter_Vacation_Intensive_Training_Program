@@ -18,6 +18,8 @@ func SetupRouter() *gin.Engine {
 			"message": "pong",
 		})
 	})
+	// 首页接口：功能入口
+	r.GET("/home", handlers.Home)
 
 	// 登录接口：账号密码验证
 	r.POST("/login", handlers.Login)
