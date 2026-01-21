@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"hotel_luggage/internal/services"
 
@@ -126,5 +127,62 @@ func RetrieveLuggage(c *gin.Context) {
 		"message":    "retrieve luggage success",
 		"luggage_id": item.ID,
 		"status":     item.Status,
+	})
+}
+
+// ListLuggageByUser 获取用户寄存单列表
+// GET /storage/list?user_id=1&status=stored
+func ListLuggageByUser(c *gin.Context) {
+	userIDStr := c.Query("user_id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "user_id is required",
+		})
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil || userID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid user_id",
+		})
+		return
+	}
+
+	status := c.Query("status")
+	items, err := services.ListLuggageByUser(userID, status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list luggage success",
+		"items":   items,
+	})
+}
+
+// ListLuggageByGuest 按客人姓名/手机号查询寄存单列表
+// GET /storage/list/by-guest?guest_name=...&contact_phone=...&status=stored
+func ListLuggageByGuest(c *gin.Context) {
+	guestName := c.Query("guest_name")
+	contactPhone := c.Query("contact_phone")
+	status := c.Query("status")
+
+	items, err := services.ListLuggageByGuest(guestName, contactPhone, status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list luggage success",
+		"items":   items,
 	})
 }

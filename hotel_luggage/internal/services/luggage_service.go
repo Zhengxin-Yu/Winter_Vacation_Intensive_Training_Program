@@ -154,3 +154,19 @@ func RetrieveLuggage(code string, retrievedBy int64) (models.LuggageItem, error)
 	item.RetrievedBy = &retrievedBy
 	return item, nil
 }
+
+// ListLuggageByUser 获取用户寄存单列表
+func ListLuggageByUser(userID int64, status string) ([]models.LuggageItem, error) {
+	if userID <= 0 {
+		return nil, errors.New("invalid user id")
+	}
+	return repositories.ListLuggageByUser(userID, status)
+}
+
+// ListLuggageByGuest 按客人姓名/手机号查询寄存单列表
+func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.LuggageItem, error) {
+	if guestName == "" && contactPhone == "" {
+		return nil, errors.New("guest_name and contact_phone cannot both be empty")
+	}
+	return repositories.ListLuggageByGuest(guestName, contactPhone, status)
+}

@@ -98,3 +98,38 @@ func UpdateLuggageRetrieved(id int64, retrievedBy int64) error {
 			"retrieved_at": gorm.Expr("NOW()"),
 		}).Error
 }
+
+// ListLuggageByUser 查询某用户创建的寄存单列表
+// status 可选：stored/retrieved/migrated
+func ListLuggageByUser(userID int64, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{}).Where("stored_by = ?", userID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}
+
+// ListLuggageByGuest 按客人姓名/手机号查询寄存单列表
+func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{})
+	if guestName != "" {
+		query = query.Where("guest_name = ?", guestName)
+	}
+	if contactPhone != "" {
+		query = query.Where("contact_phone = ?", contactPhone)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}
