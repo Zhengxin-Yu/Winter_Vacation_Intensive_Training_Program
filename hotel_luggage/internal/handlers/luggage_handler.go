@@ -339,3 +339,113 @@ func ListPickupCodesByPhone(c *gin.Context) {
 		"items":   result,
 	})
 }
+
+// UpdateLuggageInfo 修改寄存信息（不包含寄存室迁移）
+// PUT /storage/:id
+func UpdateLuggageInfo(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid luggage id",
+		})
+		return
+	}
+
+	var req struct {
+		GuestName    *string `json:"guest_name"`
+		ContactPhone *string `json:"contact_phone"`
+		ContactEmail *string `json:"contact_email"`
+		Description  *string `json:"description"`
+		Quantity     *int    `json:"quantity"`
+		SpecialNotes *string `json:"special_notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if err := services.UpdateLuggageInfo(id, services.UpdateLuggageInfoRequest{
+		GuestName:    req.GuestName,
+		ContactPhone: req.ContactPhone,
+		ContactEmail: req.ContactEmail,
+		Description:  req.Description,
+		Quantity:     req.Quantity,
+		SpecialNotes: req.SpecialNotes,
+	}); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "update luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "update luggage success",
+	})
+}
+
+// UpdateLuggageCode 修改取件码
+// PUT /storage/:id/code
+func UpdateLuggageCode(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid luggage id",
+		})
+		return
+	}
+
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if err := services.UpdateLuggageCode(id, req.Code); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "update retrieval code failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "update retrieval code success",
+	})
+}
+
+// BindLuggage 绑定行李到用户
+// POST /storage/bind
+func BindLuggage(c *gin.Context) {
+	var req struct {
+		LuggageID int64 `json:"luggage_id" binding:"required"` // 行李ID
+		UserID    int64 `json:"user_id" binding:"required"`    // 用户ID
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if err := services.BindLuggageToUser(req.LuggageID, req.UserID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "bind luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "bind luggage success",
+	})
+}

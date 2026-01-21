@@ -99,6 +99,39 @@ func UpdateLuggageRetrieved(id int64, retrievedBy int64) error {
 		}).Error
 }
 
+// UpdateLuggageInfo 更新寄存信息（仅更新指定字段）
+func UpdateLuggageInfo(id int64, updates map[string]interface{}) error {
+	if DB == nil {
+		return errors.New("db not initialized")
+	}
+	if len(updates) == 0 {
+		return errors.New("no fields to update")
+	}
+	return DB.Model(&models.LuggageItem{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+// UpdateLuggageCode 更新取件码
+func UpdateLuggageCode(id int64, code string) error {
+	if DB == nil {
+		return errors.New("db not initialized")
+	}
+	return DB.Model(&models.LuggageItem{}).
+		Where("id = ?", id).
+		Update("retrieval_code", code).Error
+}
+
+// BindLuggageToUser 绑定行李到用户（更新 stored_by）
+func BindLuggageToUser(id int64, userID int64) error {
+	if DB == nil {
+		return errors.New("db not initialized")
+	}
+	return DB.Model(&models.LuggageItem{}).
+		Where("id = ?", id).
+		Update("stored_by", userID).Error
+}
+
 // ListLuggageByUser 查询某用户创建的寄存单列表
 // status 可选：stored/retrieved/migrated
 func ListLuggageByUser(userID int64, status string) ([]models.LuggageItem, error) {

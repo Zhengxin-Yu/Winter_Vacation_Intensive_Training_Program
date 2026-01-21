@@ -229,3 +229,95 @@ func ListPickupCodesByPhone(contactPhone, status string) ([]models.LuggageItem, 
 	}
 	return repositories.ListPickupCodesByPhone(contactPhone, status)
 }
+
+// UpdateLuggageInfoRequest 修改寄存信息输入
+type UpdateLuggageInfoRequest struct {
+	GuestName    *string
+	ContactPhone *string
+	ContactEmail *string
+	Description  *string
+	Quantity     *int
+	SpecialNotes *string
+}
+
+// UpdateLuggageInfo 修改寄存信息（不包含寄存室迁移）
+func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
+	if id <= 0 {
+		return errors.New("invalid luggage id")
+	}
+
+	updates := map[string]interface{}{}
+	if req.GuestName != nil {
+		updates["guest_name"] = *req.GuestName
+	}
+	if req.ContactPhone != nil {
+		updates["contact_phone"] = *req.ContactPhone
+	}
+	if req.ContactEmail != nil {
+		updates["contact_email"] = *req.ContactEmail
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.Quantity != nil {
+		if *req.Quantity <= 0 {
+			return errors.New("quantity must be greater than 0")
+		}
+		updates["quantity"] = *req.Quantity
+	}
+	if req.SpecialNotes != nil {
+		updates["special_notes"] = *req.SpecialNotes
+	}
+
+	return repositories.UpdateLuggageInfo(id, updates)
+}
+
+// UpdateLuggageCode 修改取件码
+func UpdateLuggageCode(id int64, code string) error {
+	if id <= 0 {
+		return errors.New("invalid luggage id")
+	}
+	if code == "" {
+		return errors.New("code is empty")
+	}
+
+	item, err := repositories.GetLuggageByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("luggage not found")
+		}
+		return err
+	}
+
+	existing, err := repositories.FindLuggageByCode(code)
+	if err == nil {
+		if existing.ID != item.ID {
+			return errors.New("retrieval code already exists")
+		}
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return repositories.UpdateLuggageCode(item.ID, code)
+}
+
+// BindLuggageToUser 绑定行李到用户（按行李ID）
+func BindLuggageToUser(luggageID int64, userID int64) error {
+	if luggageID <= 0 || userID <= 0 {
+		return errors.New("invalid luggage_id or user_id")
+	}
+
+	item, err := repositories.GetLuggageByID(luggageID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("luggage not found")
+		}
+		return err
+	}
+	if item.Status != "stored" {
+		return errors.New("luggage is not in stored status")
+	}
+
+	return repositories.BindLuggageToUser(item.ID, userID)
+}

@@ -47,6 +47,12 @@ func SetupRouter() *gin.Engine {
 	r.GET("/pickup-codes", handlers.ListPickupCodesByUser)
 	// 查看取件码页面：按手机号查询
 	r.GET("/pickup-codes/by-phone", handlers.ListPickupCodesByPhone)
+	// 修改寄存信息
+	r.PUT("/storage/:id", handlers.UpdateLuggageInfo)
+	// 修改取件码
+	r.PUT("/storage/:id/code", handlers.UpdateLuggageCode)
+	// 行李绑定到用户
+	r.POST("/storage/bind", handlers.BindLuggage)
 	// 二维码展示接口
 	r.GET("/qr/:code", handlers.GetQRCode)
 
