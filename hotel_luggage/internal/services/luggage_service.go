@@ -170,3 +170,41 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 	}
 	return repositories.ListLuggageByGuest(guestName, contactPhone, status)
 }
+
+// GetLuggageDetail 获取寄存单详情
+func GetLuggageDetail(id int64) (models.LuggageItem, error) {
+	if id <= 0 {
+		return models.LuggageItem{}, errors.New("invalid luggage id")
+	}
+	item, err := repositories.GetLuggageByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("luggage not found")
+		}
+		return models.LuggageItem{}, err
+	}
+	return item, nil
+}
+
+// GetLuggageDetailByCode 按取件码查询寄存单详情
+func GetLuggageDetailByCode(code string) (models.LuggageItem, error) {
+	if code == "" {
+		return models.LuggageItem{}, errors.New("code is empty")
+	}
+	item, err := repositories.FindLuggageByCode(code)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageItem{}, errors.New("luggage not found")
+		}
+		return models.LuggageItem{}, err
+	}
+	return item, nil
+}
+
+// ListLuggageDetailByPhone 按客人手机号查询寄存单详情列表
+func ListLuggageDetailByPhone(contactPhone string) ([]models.LuggageItem, error) {
+	if contactPhone == "" {
+		return nil, errors.New("contact_phone is empty")
+	}
+	return repositories.ListLuggageByGuest("", contactPhone, "")
+}

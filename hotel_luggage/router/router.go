@@ -37,6 +37,12 @@ func SetupRouter() *gin.Engine {
 	r.GET("/storage/list", handlers.ListLuggageByUser)
 	// 寄存单列表：按客人姓名/手机号查询
 	r.GET("/storage/list/by-guest", handlers.ListLuggageByGuest)
+	// 寄存单详情
+	r.GET("/storage/detail", handlers.GetLuggageDetail)
+	// 寄存单详情：按取件码查询
+	r.GET("/storage/detail/by-code", handlers.GetLuggageDetailByCode)
+	// 寄存单详情：按手机号查询
+	r.GET("/storage/detail/by-phone", handlers.ListLuggageDetailByPhone)
 
 	// 寄存室管理接口
 	r.GET("/storerooms", handlers.ListStorerooms)

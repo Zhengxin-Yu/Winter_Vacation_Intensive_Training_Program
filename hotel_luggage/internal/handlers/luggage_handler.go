@@ -186,3 +186,74 @@ func ListLuggageByGuest(c *gin.Context) {
 		"items":   items,
 	})
 }
+
+// GetLuggageDetail 获取寄存单详情
+// GET /storage/detail?id=1
+func GetLuggageDetail(c *gin.Context) {
+	idStr := c.Query("id")
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "id is required",
+		})
+		return
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid id",
+		})
+		return
+	}
+
+	item, err := services.GetLuggageDetail(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get luggage detail failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get luggage detail success",
+		"item":    item,
+	})
+}
+
+// GetLuggageDetailByCode 按取件码查询寄存单详情
+// GET /storage/detail/by-code?code=XXXX
+func GetLuggageDetailByCode(c *gin.Context) {
+	code := c.Query("code")
+	item, err := services.GetLuggageDetailByCode(code)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get luggage detail failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get luggage detail success",
+		"item":    item,
+	})
+}
+
+// ListLuggageDetailByPhone 按手机号查询寄存单详情列表
+// GET /storage/detail/by-phone?contact_phone=...
+func ListLuggageDetailByPhone(c *gin.Context) {
+	phone := c.Query("contact_phone")
+	items, err := services.ListLuggageDetailByPhone(phone)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get luggage detail failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get luggage detail success",
+		"items":   items,
+	})
+}
