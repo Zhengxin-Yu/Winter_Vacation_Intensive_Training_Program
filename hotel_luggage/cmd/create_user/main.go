@@ -17,6 +17,7 @@ func main() {
 	username := flag.String("u", "", "用户名")
 	password := flag.String("p", "", "密码（明文）")
 	role := flag.String("r", "staff", "角色（staff/admin）")
+	hotelID := flag.Int64("h", 0, "酒店ID（staff/admin 必填）")
 	flag.Parse()
 
 	if *username == "" || *password == "" {
@@ -27,7 +28,10 @@ func main() {
 	repositories.InitDB()
 
 	// 创建用户（自动生成 bcrypt 哈希）
-	user, err := services.CreateUser(*username, *password, *role)
+	if *hotelID <= 0 {
+		log.Fatal("参数缺失：staff/admin 必须提供 -h 酒店ID")
+	}
+	user, err := services.CreateUser(*username, *password, *role, hotelID)
 	if err != nil {
 		log.Fatalf("创建用户失败: %v", err)
 	}

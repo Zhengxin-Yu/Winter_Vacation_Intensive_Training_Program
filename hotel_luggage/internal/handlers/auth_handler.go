@@ -19,6 +19,7 @@ type CreateUserRequest struct {
 	Username string `json:"username" binding:"required"` // 用户名
 	Password string `json:"password" binding:"required"` // 明文密码
 	Role     string `json:"role"`                        // 角色，可选：staff/admin
+	HotelID  *int64 `json:"hotel_id"`                    // 关联酒店ID（staff/admin 必填）
 }
 
 // Login 处理登录请求
@@ -65,7 +66,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := services.CreateUser(req.Username, req.Password, req.Role)
+	user, err := services.CreateUser(req.Username, req.Password, req.Role, req.HotelID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "create user failed",
@@ -80,6 +81,7 @@ func CreateUser(c *gin.Context) {
 			"id":       user.ID,
 			"username": user.Username,
 			"role":     user.Role,
+			"hotel_id": user.HotelID,
 		},
 	})
 }

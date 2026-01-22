@@ -42,6 +42,9 @@ func MigrateLuggage(req MigrateLuggageRequest) (models.LuggageMigration, error) 
 		}
 		return models.LuggageMigration{}, err
 	}
+	if item.HotelID != room.HotelID {
+		return models.LuggageMigration{}, errors.New("storeroom hotel mismatch")
+	}
 	if !room.IsActive {
 		return models.LuggageMigration{}, errors.New("target storeroom is inactive")
 	}
@@ -62,6 +65,7 @@ func MigrateLuggage(req MigrateLuggageRequest) (models.LuggageMigration, error) 
 
 	// 4) 写入迁移日志
 	log := models.LuggageMigration{
+		HotelID:         room.HotelID,
 		LuggageID:       item.ID,
 		FromStoreroomID: item.StoreroomID,
 		ToStoreroomID:   req.ToStoreroomID,

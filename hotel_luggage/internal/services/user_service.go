@@ -14,12 +14,27 @@ import (
 // 1. 校验参数
 // 2. 密码哈希
 // 3. 写入数据库
-func CreateUser(username, password, role string) (models.User, error) {
+func CreateUser(username, password, role string, hotelID *int64) (models.User, error) {
 	if username == "" || password == "" {
 		return models.User{}, errors.New("username or password is empty")
 	}
 	if role == "" {
 		role = "staff"
+	}
+	if role != "staff" && role != "admin" {
+		return models.User{}, errors.New("invalid role")
+	}
+
+	// staff/admin 必须关联酒店
+	if hotelID == nil || *hotelID <= 0 {
+		return models.User{}, errors.New("hotel_id is required for staff/admin")
+	}
+
+	if _, err := repositories.GetHotelByID(*hotelID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.User{}, errors.New("hotel not found")
+		}
+		return models.User{}, err
 	}
 
 	// 用户名唯一校验
@@ -39,6 +54,7 @@ func CreateUser(username, password, role string) (models.User, error) {
 		Username:     username,
 		PasswordHash: string(hash),
 		Role:         role,
+		HotelID:      hotelID,
 	}
 	if err := repositories.CreateUser(&user); err != nil {
 		return models.User{}, err

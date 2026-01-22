@@ -40,17 +40,6 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		req.Quantity = 1
 	}
 
-	guest, err := repositories.GetUserByUsername(req.GuestName)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.LuggageItem{}, errors.New("guest not found")
-		}
-		return models.LuggageItem{}, err
-	}
-	if guest.Role != "guest" {
-		return models.LuggageItem{}, errors.New("guest_name is not a guest user")
-	}
-
 	staff, err := repositories.GetUserByUsername(req.StaffName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -112,6 +101,7 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		Description:   req.Description,
 		Quantity:      req.Quantity,
 		SpecialNotes:  req.SpecialNotes,
+		HotelID:       room.HotelID,
 		StoreroomID:   req.StoreroomID,
 		RetrievalCode: code,
 		QRCodeURL:     req.QRCodeURL,
@@ -197,6 +187,7 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		Description:   item.Description,
 		Quantity:      item.Quantity,
 		SpecialNotes:  item.SpecialNotes,
+		HotelID:       item.HotelID,
 		StoreroomID:   item.StoreroomID,
 		RetrievalCode: item.RetrievalCode,
 		QRCodeURL:     item.QRCodeURL,
@@ -306,16 +297,6 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 
 	updates := map[string]interface{}{}
 	if req.GuestName != nil {
-		guest, err := repositories.GetUserByUsername(*req.GuestName)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New("guest not found")
-			}
-			return err
-		}
-		if guest.Role != "guest" {
-			return errors.New("guest_name is not a guest user")
-		}
 		updates["guest_name"] = *req.GuestName
 	}
 	if req.ContactPhone != nil {

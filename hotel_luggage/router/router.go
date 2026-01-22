@@ -59,6 +59,11 @@ func SetupRouter() *gin.Engine {
 	r.GET("/storage/history/by-guest", handlers.ListHistoryByGuest)
 	// 二维码展示接口
 	r.GET("/qr/:code", handlers.GetQRCode)
+	// 酒店管理接口
+	r.GET("/hotels", handlers.ListHotels)
+	r.POST("/hotels", handlers.CreateHotel)
+	r.PUT("/hotels/:id", handlers.UpdateHotel)
+	r.DELETE("/hotels/:id", handlers.DeleteHotel)
 
 	// 寄存室管理接口
 	r.GET("/storerooms", handlers.ListStorerooms)

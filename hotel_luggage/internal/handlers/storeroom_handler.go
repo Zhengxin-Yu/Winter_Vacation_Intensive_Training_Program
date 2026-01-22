@@ -11,10 +11,11 @@ import (
 
 // CreateStoreroomRequest 创建寄存室请求结构体
 type CreateStoreroomRequest struct {
-	Name     string `json:"name" binding:"required"` // 寄存室名称
-	Location string `json:"location"`                // 位置描述
-	Capacity int    `json:"capacity"`                // 容量
-	IsActive bool   `json:"is_active"`               // 是否启用
+	HotelID  int64  `json:"hotel_id" binding:"required"` // 所属酒店ID
+	Name     string `json:"name" binding:"required"`     // 寄存室名称
+	Location string `json:"location"`                    // 位置描述
+	Capacity int    `json:"capacity"`                    // 容量
+	IsActive bool   `json:"is_active"`                   // 是否启用
 }
 
 // UpdateStoreroomStatusRequest 更新寄存室状态请求结构体
@@ -50,6 +51,7 @@ func CreateStoreroom(c *gin.Context) {
 	}
 
 	room, err := services.CreateStoreroom(services.CreateStoreroomRequest{
+		HotelID:  req.HotelID,
 		Name:     req.Name,
 		Location: req.Location,
 		Capacity: req.Capacity,

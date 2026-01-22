@@ -11,6 +11,7 @@ import (
 
 // CreateStoreroomRequest 创建寄存室的业务输入
 type CreateStoreroomRequest struct {
+	HotelID  int64
 	Name     string
 	Location string
 	Capacity int
@@ -24,6 +25,9 @@ func ListStorerooms() ([]models.LuggageStoreroom, error) {
 
 // CreateStoreroom 创建寄存室
 func CreateStoreroom(req CreateStoreroomRequest) (models.LuggageStoreroom, error) {
+	if req.HotelID <= 0 {
+		return models.LuggageStoreroom{}, errors.New("invalid hotel id")
+	}
 	if req.Name == "" {
 		return models.LuggageStoreroom{}, errors.New("name is empty")
 	}
@@ -31,7 +35,16 @@ func CreateStoreroom(req CreateStoreroomRequest) (models.LuggageStoreroom, error
 		return models.LuggageStoreroom{}, errors.New("capacity cannot be negative")
 	}
 
+	// 校验酒店是否存在
+	if _, err := repositories.GetHotelByID(req.HotelID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageStoreroom{}, errors.New("hotel not found")
+		}
+		return models.LuggageStoreroom{}, err
+	}
+
 	room := models.LuggageStoreroom{
+		HotelID:  req.HotelID,
 		Name:     req.Name,
 		Location: req.Location,
 		Capacity: req.Capacity,
