@@ -10,9 +10,9 @@ import (
 
 // MigrateLuggageRequest 行李迁移请求结构体
 type MigrateLuggageRequest struct {
-	LuggageID     int64 `json:"luggage_id" binding:"required"`      // 行李ID
-	ToStoreroomID int64 `json:"to_storeroom_id" binding:"required"` // 目标寄存室ID
-	MigratedBy    int64 `json:"migrated_by" binding:"required"`     // 操作员ID
+	LuggageID     int64  `json:"luggage_id" binding:"required"`      // 行李ID
+	ToStoreroomID int64  `json:"to_storeroom_id" binding:"required"` // 目标寄存室ID
+	MigratedBy    string `json:"migrated_by" binding:"required"`     // 操作员用户名
 }
 
 // MigrateLuggage 行李迁移接口

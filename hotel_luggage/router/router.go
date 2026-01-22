@@ -2,6 +2,7 @@ package router
 
 import (
 	"hotel_luggage/internal/handlers"
+	"hotel_luggage/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,56 +24,60 @@ func SetupRouter() *gin.Engine {
 
 	// 登录接口：账号密码验证
 	r.POST("/login", handlers.Login)
-
 	// 创建用户接口：生成 bcrypt 密码哈希并入库
 	r.POST("/users", handlers.CreateUser)
+	// 二维码展示接口（公开）
+	r.GET("/qr/:code", handlers.GetQRCode)
+
+	// 需要鉴权的接口
+	auth := r.Group("/")
+	auth.Use(middleware.JWTAuth())
 
 	// 行李寄存接口：生成寄存记录与取件码
-	r.POST("/storage", handlers.CreateLuggage)
+	auth.POST("/storage", handlers.CreateLuggage)
 	// 查看寄存接口：按用户信息查询
-	r.GET("/storage/search", handlers.QueryLuggageByUserInfo)
+	auth.GET("/storage/search", handlers.QueryLuggageByUserInfo)
 	// 查看寄存接口：按取件码查询
-	r.GET("/storage/by-code", handlers.QueryLuggageByCode)
+	auth.GET("/storage/by-code", handlers.QueryLuggageByCode)
 	// 取件接口：通过取件码完成取件
-	r.POST("/storage/retrieve", handlers.RetrieveLuggage)
+	auth.POST("/storage/retrieve", handlers.RetrieveLuggage)
 	// 寄存单列表：按用户查询
-	r.GET("/storage/list", handlers.ListLuggageByUser)
+	auth.GET("/storage/list", handlers.ListLuggageByUser)
 	// 寄存单列表：按客人姓名/手机号查询
-	r.GET("/storage/list/by-guest", handlers.ListLuggageByGuest)
+	auth.GET("/storage/list/by-guest", handlers.ListLuggageByGuest)
 	// 寄存单详情
-	r.GET("/storage/detail", handlers.GetLuggageDetail)
+	auth.GET("/storage/detail", handlers.GetLuggageDetail)
 	// 寄存单详情：按取件码查询
-	r.GET("/storage/detail/by-code", handlers.GetLuggageDetailByCode)
+	auth.GET("/storage/detail/by-code", handlers.GetLuggageDetailByCode)
 	// 寄存单详情：按手机号查询
-	r.GET("/storage/detail/by-phone", handlers.ListLuggageDetailByPhone)
+	auth.GET("/storage/detail/by-phone", handlers.ListLuggageDetailByPhone)
 	// 查看取件码页面：取件码列表
-	r.GET("/pickup-codes", handlers.ListPickupCodesByUser)
+	auth.GET("/pickup-codes", handlers.ListPickupCodesByUser)
 	// 查看取件码页面：按手机号查询
-	r.GET("/pickup-codes/by-phone", handlers.ListPickupCodesByPhone)
+	auth.GET("/pickup-codes/by-phone", handlers.ListPickupCodesByPhone)
 	// 修改寄存信息
-	r.PUT("/storage/:id", handlers.UpdateLuggageInfo)
+	auth.PUT("/storage/:id", handlers.UpdateLuggageInfo)
 	// 修改取件码
-	r.PUT("/storage/:id/code", handlers.UpdateLuggageCode)
+	auth.PUT("/storage/:id/code", handlers.UpdateLuggageCode)
 	// 行李绑定到用户
-	r.POST("/storage/bind", handlers.BindLuggage)
+	auth.POST("/storage/bind", handlers.BindLuggage)
 	// 取件历史查询
-	r.GET("/storage/history/by-guest", handlers.ListHistoryByGuest)
-	// 二维码展示接口
-	r.GET("/qr/:code", handlers.GetQRCode)
+	auth.GET("/storage/history/by-guest", handlers.ListHistoryByGuest)
+
 	// 酒店管理接口
-	r.GET("/hotels", handlers.ListHotels)
-	r.POST("/hotels", handlers.CreateHotel)
-	r.PUT("/hotels/:id", handlers.UpdateHotel)
-	r.DELETE("/hotels/:id", handlers.DeleteHotel)
+	auth.GET("/hotels", handlers.ListHotels)
+	auth.POST("/hotels", handlers.CreateHotel)
+	auth.PUT("/hotels/:id", handlers.UpdateHotel)
+	auth.DELETE("/hotels/:id", handlers.DeleteHotel)
 
 	// 寄存室管理接口
-	r.GET("/storerooms", handlers.ListStorerooms)
-	r.POST("/storerooms", handlers.CreateStoreroom)
-	r.DELETE("/storerooms/:id", handlers.DeleteStoreroom)
-	r.PUT("/storerooms/:id/status", handlers.UpdateStoreroomStatus)
+	auth.GET("/storerooms", handlers.ListStorerooms)
+	auth.POST("/storerooms", handlers.CreateStoreroom)
+	auth.DELETE("/storerooms/:id", handlers.DeleteStoreroom)
+	auth.PUT("/storerooms/:id/status", handlers.UpdateStoreroomStatus)
 
 	// 行李迁移接口
-	r.POST("/storerooms/migrate", handlers.MigrateLuggage)
+	auth.POST("/storerooms/migrate", handlers.MigrateLuggage)
 
 	return r
 }

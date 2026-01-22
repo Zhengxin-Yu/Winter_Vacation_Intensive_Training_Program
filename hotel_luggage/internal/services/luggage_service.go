@@ -62,6 +62,9 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 	if !room.IsActive {
 		return models.LuggageItem{}, errors.New("storeroom is inactive")
 	}
+	if room.HotelID <= 0 {
+		return models.LuggageItem{}, errors.New("storeroom hotel_id is missing")
+	}
 
 	// 容量校验（当 capacity > 0 才判断）
 	if room.Capacity > 0 {

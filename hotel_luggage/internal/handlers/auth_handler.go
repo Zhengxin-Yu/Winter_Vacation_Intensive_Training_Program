@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"hotel_luggage/internal/services"
+	"hotel_luggage/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,6 +44,15 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	token, err := utils.GenerateToken(user.Username, user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "token generate failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
 	// 目前先返回基础信息，后续可接入 JWT
 	c.JSON(http.StatusOK, gin.H{
 		"message": "login success",
@@ -50,7 +60,9 @@ func Login(c *gin.Context) {
 			"id":       user.ID,
 			"username": user.Username,
 			"role":     user.Role,
+			"hotel_id": user.HotelID,
 		},
+		"token": token,
 	})
 }
 

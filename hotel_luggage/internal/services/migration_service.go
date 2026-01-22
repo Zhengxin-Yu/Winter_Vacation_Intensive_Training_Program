@@ -13,13 +13,24 @@ import (
 type MigrateLuggageRequest struct {
 	LuggageID     int64
 	ToStoreroomID int64
-	MigratedBy    int64
+	MigratedBy    string
 }
 
 // MigrateLuggage 行李迁移：更新寄存室并记录迁移日志
 func MigrateLuggage(req MigrateLuggageRequest) (models.LuggageMigration, error) {
-	if req.LuggageID <= 0 || req.ToStoreroomID <= 0 || req.MigratedBy <= 0 {
+	if req.LuggageID <= 0 || req.ToStoreroomID <= 0 || req.MigratedBy == "" {
 		return models.LuggageMigration{}, errors.New("invalid request")
+	}
+
+	operator, err := repositories.GetUserByUsername(req.MigratedBy)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.LuggageMigration{}, errors.New("migrated_by user not found")
+		}
+		return models.LuggageMigration{}, err
+	}
+	if operator.Role != "staff" && operator.Role != "admin" {
+		return models.LuggageMigration{}, errors.New("migrated_by is not staff/admin")
 	}
 
 	// 1) 查询行李记录
@@ -69,7 +80,7 @@ func MigrateLuggage(req MigrateLuggageRequest) (models.LuggageMigration, error) 
 		LuggageID:       item.ID,
 		FromStoreroomID: item.StoreroomID,
 		ToStoreroomID:   req.ToStoreroomID,
-		MigratedBy:      req.MigratedBy,
+		MigratedBy:      operator.Username,
 	}
 	if err := repositories.CreateMigrationLog(&log); err != nil {
 		return models.LuggageMigration{}, err
