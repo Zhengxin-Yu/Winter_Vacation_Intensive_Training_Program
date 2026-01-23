@@ -29,8 +29,8 @@ func MigrateLuggage(req MigrateLuggageRequest) (models.LuggageMigration, error) 
 		}
 		return models.LuggageMigration{}, err
 	}
-	if operator.Role != "staff" && operator.Role != "admin" {
-		return models.LuggageMigration{}, errors.New("migrated_by is not staff/admin")
+	if operator.Role != "staff" {
+		return models.LuggageMigration{}, errors.New("migrated_by is not staff")
 	}
 
 	// 1) 查询行李记录

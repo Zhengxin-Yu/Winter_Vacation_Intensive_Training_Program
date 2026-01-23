@@ -71,31 +71,5 @@ func SetupRouter() *gin.Engine {
 
 	auth.POST("/upload", handlers.Upload)
 
-	// admin 组（需要管理员权限）
-	admin := auth.Group("/admin")
-	admin.Use(middleware.AdminOnly())
-
-	// 员工管理
-	admin.POST("/employees", handlers.CreateEmployee)
-	admin.GET("/employees", handlers.ListEmployees)
-	admin.DELETE("/employees/:id", handlers.DeleteEmployee)
-
-	// 管理员管理
-	admin.POST("/admins", handlers.CreateAdmin)
-	admin.GET("/admins", handlers.ListAdmins)
-	admin.DELETE("/admins/:id", handlers.DeleteAdmin)
-
-	// 酒店管理
-	admin.POST("/hotels", handlers.CreateHotel)
-	admin.GET("/hotels", handlers.ListHotels)
-	admin.PUT("/hotels/:id", handlers.UpdateHotel)
-	admin.DELETE("/hotels/:id", handlers.DeleteHotel)
-
-	// 寄存室管理（旧路径保留）
-	admin.POST("/storages", handlers.CreateStoreroom)
-	admin.GET("/storages", handlers.ListStorerooms)
-	admin.PUT("/storages/:id", handlers.UpdateStoreroomStatus)
-	admin.DELETE("/storages/:id", handlers.DeleteStoreroom)
-
 	return r
 }

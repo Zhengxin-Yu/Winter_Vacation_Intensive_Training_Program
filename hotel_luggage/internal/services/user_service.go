@@ -18,16 +18,11 @@ func CreateUser(username, password, role string, hotelID *int64) (models.User, e
 	if username == "" || password == "" {
 		return models.User{}, errors.New("username or password is empty")
 	}
-	if role == "" {
-		role = "staff"
-	}
-	if role != "staff" && role != "admin" {
-		return models.User{}, errors.New("invalid role")
-	}
+	role = "staff"
 
-	// staff/admin 必须关联酒店
+	// staff 必须关联酒店
 	if hotelID == nil || *hotelID <= 0 {
-		return models.User{}, errors.New("hotel_id is required for staff/admin")
+		return models.User{}, errors.New("hotel_id is required")
 	}
 
 	if _, err := repositories.GetHotelByID(*hotelID); err != nil {
@@ -62,36 +57,10 @@ func CreateUser(username, password, role string, hotelID *int64) (models.User, e
 	return user, nil
 }
 
-// ListUsersByRole 查询用户列表
-func ListUsersByRole(role string) ([]models.User, error) {
-	if role != "staff" && role != "admin" {
-		return nil, errors.New("invalid role")
-	}
-	return repositories.ListUsersByRole(role)
-}
-
 // ListUsersByHotel 查询指定酒店的用户列表
 func ListUsersByHotel(hotelID int64) ([]models.User, error) {
 	if hotelID <= 0 {
 		return nil, errors.New("invalid hotel id")
 	}
 	return repositories.ListUsersByHotel(hotelID)
-}
-
-// DeleteUserByRole 删除指定角色的用户
-func DeleteUserByRole(id int64, role string) error {
-	if id <= 0 {
-		return errors.New("invalid id")
-	}
-	user, err := repositories.GetUserByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("user not found")
-		}
-		return err
-	}
-	if user.Role != role {
-		return errors.New("role mismatch")
-	}
-	return repositories.DeleteUserByID(id)
 }

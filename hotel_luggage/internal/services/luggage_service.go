@@ -47,8 +47,8 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		}
 		return models.LuggageItem{}, err
 	}
-	if staff.Role != "staff" && staff.Role != "admin" {
-		return models.LuggageItem{}, errors.New("staff_name is not staff/admin")
+	if staff.Role != "staff" {
+		return models.LuggageItem{}, errors.New("staff_name is not staff")
 	}
 
 	// 校验寄存室是否存在且启用
@@ -162,8 +162,8 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		}
 		return models.LuggageItem{}, err
 	}
-	if user.Role != "staff" && user.Role != "admin" {
-		return models.LuggageItem{}, errors.New("retrieved_by is not staff/admin")
+	if user.Role != "staff" {
+		return models.LuggageItem{}, errors.New("retrieved_by is not staff")
 	}
 
 	item, err := repositories.FindLuggageByCode(code)
