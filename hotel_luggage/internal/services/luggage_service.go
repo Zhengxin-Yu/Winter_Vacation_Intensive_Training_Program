@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -20,6 +21,7 @@ type CreateLuggageRequest struct {
 	Description  string
 	Quantity     int
 	SpecialNotes string
+	PhotoURL     string
 	StoreroomID  int64
 	StaffName    string
 	QRCodeURL    string
@@ -104,6 +106,7 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		Description:   req.Description,
 		Quantity:      req.Quantity,
 		SpecialNotes:  req.SpecialNotes,
+		PhotoURL:      req.PhotoURL,
 		HotelID:       room.HotelID,
 		StoreroomID:   req.StoreroomID,
 		RetrievalCode: code,
@@ -195,6 +198,7 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		Description:   item.Description,
 		Quantity:      item.Quantity,
 		SpecialNotes:  item.SpecialNotes,
+		PhotoURL:      item.PhotoURL,
 		HotelID:       item.HotelID,
 		StoreroomID:   item.StoreroomID,
 		RetrievalCode: item.RetrievalCode,
@@ -252,6 +256,33 @@ func ListLuggageByHotelAndStatus(hotelID int64, status string) ([]models.Luggage
 		return nil, errors.New("invalid hotel id")
 	}
 	return repositories.ListLuggageByHotelAndStatus(hotelID, status)
+}
+
+// ListGuestNamesByHotelAndStatus 查询某酒店下指定状态的客人姓名（去重）
+func ListGuestNamesByHotelAndStatus(hotelID int64, status string) ([]string, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListGuestNamesByHotelAndStatus(hotelID, status)
+}
+
+// ListLuggageUpdatesByHotel 查询某酒店寄存单修改记录
+func ListLuggageUpdatesByHotel(hotelID int64) ([]models.LuggageUpdate, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListUpdatesByHotel(hotelID)
+}
+
+// ListStoredLuggageByGuestName 获取某客人正在寄存的行李列表
+func ListStoredLuggageByGuestName(hotelID int64, guestName string) ([]models.LuggageItem, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	if guestName == "" {
+		return nil, errors.New("guest_name is empty")
+	}
+	return repositories.ListLuggageByHotelGuestAndStatus(hotelID, guestName, "stored")
 }
 
 // GetLuggageDetail 获取寄存单详情
@@ -316,12 +347,22 @@ type UpdateLuggageInfoRequest struct {
 	Description  *string
 	Quantity     *int
 	SpecialNotes *string
+	PhotoURL     *string
+	UpdatedBy    string
 }
 
 // UpdateLuggageInfo 修改寄存信息（不包含寄存室迁移）
 func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 	if id <= 0 {
 		return errors.New("invalid luggage id")
+	}
+
+	item, err := repositories.GetLuggageByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("luggage not found")
+		}
+		return err
 	}
 
 	updates := map[string]interface{}{}
@@ -346,8 +387,50 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 	if req.SpecialNotes != nil {
 		updates["special_notes"] = *req.SpecialNotes
 	}
+	if req.PhotoURL != nil {
+		updates["photo_url"] = *req.PhotoURL
+	}
 
-	return repositories.UpdateLuggageInfo(id, updates)
+	if err := repositories.UpdateLuggageInfo(id, updates); err != nil {
+		return err
+	}
+
+	updated := item
+	if req.GuestName != nil {
+		updated.GuestName = *req.GuestName
+	}
+	if req.ContactPhone != nil {
+		updated.ContactPhone = *req.ContactPhone
+	}
+	if req.ContactEmail != nil {
+		updated.ContactEmail = *req.ContactEmail
+	}
+	if req.Description != nil {
+		updated.Description = *req.Description
+	}
+	if req.Quantity != nil {
+		updated.Quantity = *req.Quantity
+	}
+	if req.SpecialNotes != nil {
+		updated.SpecialNotes = *req.SpecialNotes
+	}
+	if req.PhotoURL != nil {
+		updated.PhotoURL = *req.PhotoURL
+	}
+
+	oldData, _ := json.Marshal(item)
+	newData, _ := json.Marshal(updated)
+	if req.UpdatedBy != "" {
+		_ = repositories.CreateLuggageUpdate(&models.LuggageUpdate{
+			HotelID:   item.HotelID,
+			LuggageID: item.ID,
+			UpdatedBy: req.UpdatedBy,
+			OldData:   string(oldData),
+			NewData:   string(newData),
+		})
+	}
+
+	return nil
 }
 
 // UpdateLuggageCode 修改取件码

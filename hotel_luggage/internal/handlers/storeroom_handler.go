@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"hotel_luggage/internal/repositories"
 	"hotel_luggage/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -11,11 +12,10 @@ import (
 
 // CreateStoreroomRequest 创建寄存室请求结构体
 type CreateStoreroomRequest struct {
-	HotelID  int64  `json:"hotel_id" binding:"required"` // 所属酒店ID
-	Name     string `json:"name" binding:"required"`     // 寄存室名称
-	Location string `json:"location"`                    // 位置描述
-	Capacity int    `json:"capacity"`                    // 容量
-	IsActive bool   `json:"is_active"`                   // 是否启用
+	Name     string `json:"name" binding:"required"` // 寄存室名称
+	Location string `json:"location"`                // 位置描述
+	Capacity int    `json:"capacity"`                // 容量
+	IsActive bool   `json:"is_active"`               // 是否启用
 }
 
 // UpdateStoreroomStatusRequest 更新寄存室状态请求结构体
@@ -23,24 +23,33 @@ type UpdateStoreroomStatusRequest struct {
 	IsActive bool `json:"is_active"` // 是否启用
 }
 
-// ListStorerooms 获取寄存室列表
+// ListStorerooms 获取寄存室列表（当前登录用户的酒店）
 func ListStorerooms(c *gin.Context) {
-	hotelIDStr := c.Query("hotel_id")
-	if hotelIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "hotel_id is required",
-		})
-		return
-	}
-	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
-	if err != nil || hotelID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid hotel_id",
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
 		})
 		return
 	}
 
-	rooms, err := services.ListStorerooms(hotelID)
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get user failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+
+	rooms, err := services.ListStorerooms(*user.HotelID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list storerooms failed",
@@ -48,9 +57,40 @@ func ListStorerooms(c *gin.Context) {
 		})
 		return
 	}
+
+	result := make([]gin.H, 0, len(rooms))
+	for _, room := range rooms {
+		storedCount, err := repositories.CountStoredByStoreroom(room.ID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "count storeroom luggage failed",
+				"error":   err.Error(),
+			})
+			return
+		}
+		remaining := -1
+		if room.Capacity > 0 {
+			remaining = room.Capacity - int(storedCount)
+			if remaining < 0 {
+				remaining = 0
+			}
+		}
+		result = append(result, gin.H{
+			"id":                 room.ID,
+			"hotel_id":           room.HotelID,
+			"name":               room.Name,
+			"location":           room.Location,
+			"capacity":           room.Capacity,
+			"is_active":          room.IsActive,
+			"created_at":         room.CreatedAt,
+			"stored_count":       storedCount,
+			"remaining_capacity": remaining,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "list storerooms success",
-		"items":   rooms,
+		"items":   result,
 	})
 }
 
@@ -65,8 +105,31 @@ func CreateStoreroom(c *gin.Context) {
 		return
 	}
 
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
+		})
+		return
+	}
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get user failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+
 	room, err := services.CreateStoreroom(services.CreateStoreroomRequest{
-		HotelID:  req.HotelID,
+		HotelID:  *user.HotelID,
 		Name:     req.Name,
 		Location: req.Location,
 		Capacity: req.Capacity,

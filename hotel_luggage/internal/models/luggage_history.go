@@ -12,6 +12,7 @@ type LuggageHistory struct {
 	Description   string    `gorm:"column:description;type:text"`          // 行李描述
 	Quantity      int       `gorm:"column:quantity;not null;default:1"`    // 行李数量
 	SpecialNotes  string    `gorm:"column:special_notes;type:text"`        // 特殊备注
+	PhotoURL      string    `gorm:"column:photo_url;size:255" json:"photo_url"` // 照片URL
 	HotelID       int64     `gorm:"column:hotel_id;not null"`              // 酒店ID
 	StoreroomID   int64     `gorm:"column:storeroom_id;not null"`          // 寄存室ID
 	RetrievalCode string    `gorm:"column:retrieval_code;size:8;not null"` // 取件码

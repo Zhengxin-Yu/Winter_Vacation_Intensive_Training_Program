@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"hotel_luggage/internal/repositories"
 	"hotel_luggage/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,7 @@ type CreateLuggageRequest struct {
 	Description  string `json:"description"`                     // 行李描述
 	Quantity     int    `json:"quantity"`                        // 行李数量
 	SpecialNotes string `json:"special_notes"`                   // 特殊备注
+	PhotoURL     string `json:"photo_url"`                       // 照片URL（可选）
 	StoreroomID  int64  `json:"storeroom_id" binding:"required"` // 寄存室ID
 	StaffName    string `json:"staff_name" binding:"required"`   // 操作员用户名
 	QRCodeURL    string `json:"qr_code_url"`                     // 二维码URL（可选）
@@ -41,6 +43,7 @@ func CreateLuggage(c *gin.Context) {
 		Description:  req.Description,
 		Quantity:     req.Quantity,
 		SpecialNotes: req.SpecialNotes,
+		PhotoURL:     req.PhotoURL,
 		StoreroomID:  req.StoreroomID,
 		StaffName:    req.StaffName,
 		QRCodeURL:    req.QRCodeURL,
@@ -58,6 +61,7 @@ func CreateLuggage(c *gin.Context) {
 		"luggage_id":     item.ID,
 		"retrieval_code": item.RetrievalCode,
 		"qrcode_url":     item.QRCodeURL,
+		"photo_url":      item.PhotoURL,
 	})
 }
 
@@ -94,7 +98,6 @@ func QueryLuggageByCode(c *gin.Context) {
 		})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "query luggage success",
 		"item":    item,
@@ -179,10 +182,76 @@ func CheckoutLuggageByCode(c *gin.Context) {
 	})
 }
 
-// ListLuggageByUser 获取所有寄存客人姓名（去重）
+// GetCheckoutInfoByCode 获取当前酒店有行李在存的客人名单
+// GET /api/luggage/:id/checkout
+func GetCheckoutInfoByCode(c *gin.Context) {
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
+		})
+		return
+	}
+
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get user failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+
+	items, err := services.ListGuestNamesByHotelAndStatus(*user.HotelID, "stored")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get checkout info failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "get checkout info success",
+		"items":   items,
+	})
+}
+
+
+// ListLuggageByUser 获取当前酒店所有已存放行李的客人姓名（去重）
 // GET /api/luggage/list
 func ListLuggageByUser(c *gin.Context) {
-	items, err := services.ListGuestNames()
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
+		})
+		return
+	}
+
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get user failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+
+	items, err := services.ListGuestNamesByHotelAndStatus(*user.HotelID, "stored")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list guest names failed",
@@ -205,6 +274,48 @@ func ListLuggageByGuest(c *gin.Context) {
 	status := c.Query("status")
 
 	items, err := services.ListLuggageByGuest(guestName, contactPhone, status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list luggage success",
+		"items":   items,
+	})
+}
+
+// ListStoredLuggageByGuestName 查询某客人正在寄存的行李
+// GET /api/luggage/list/by_guest_name?guest_name=...
+func ListStoredLuggageByGuestName(c *gin.Context) {
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
+		})
+		return
+	}
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "get user failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+
+	guestName := c.Query("guest_name")
+	items, err := services.ListStoredLuggageByGuestName(*user.HotelID, guestName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list luggage failed",
@@ -385,11 +496,21 @@ func UpdateLuggageInfo(c *gin.Context) {
 		Description  *string `json:"description"`
 		Quantity     *int    `json:"quantity"`
 		SpecialNotes *string `json:"special_notes"`
+		PhotoURL     *string `json:"photo_url"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid request",
 			"error":   err.Error(),
+		})
+		return
+	}
+
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
 		})
 		return
 	}
@@ -401,6 +522,8 @@ func UpdateLuggageInfo(c *gin.Context) {
 		Description:  req.Description,
 		Quantity:     req.Quantity,
 		SpecialNotes: req.SpecialNotes,
+		PhotoURL:     req.PhotoURL,
+		UpdatedBy:    userNameStr,
 	}); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "update luggage failed",
@@ -598,24 +721,32 @@ func ListLuggageByStoreroom(c *gin.Context) {
 	})
 }
 
-// ListStoredLogs 获取所有寄存记录
-// GET /api/luggage/logs/stored?hotel_id=1
+// ListStoredLogs 获取所有寄存记录（当前登录用户的酒店）
+// GET /api/luggage/logs/stored
 func ListStoredLogs(c *gin.Context) {
-	hotelIDStr := c.Query("hotel_id")
-	if hotelIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "hotel_id is required",
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
 		})
 		return
 	}
-	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
-	if err != nil || hotelID <= 0 {
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid hotel_id",
+			"message": "get user failed",
+			"error":   err.Error(),
 		})
 		return
 	}
-	items, err := services.ListLuggageByHotelAndStatus(hotelID, "stored")
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+	items, err := services.ListLuggageByHotelAndStatus(*user.HotelID, "stored")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list logs failed",
@@ -629,24 +760,32 @@ func ListStoredLogs(c *gin.Context) {
 	})
 }
 
-// ListUpdatedLogs 获取所有修改记录（迁移日志）
-// GET /api/luggage/logs/updated?hotel_id=1
+// ListUpdatedLogs 获取所有寄存信息修改记录（当前登录用户的酒店）
+// GET /api/luggage/logs/updated
 func ListUpdatedLogs(c *gin.Context) {
-	hotelIDStr := c.Query("hotel_id")
-	if hotelIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "hotel_id is required",
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
 		})
 		return
 	}
-	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
-	if err != nil || hotelID <= 0 {
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid hotel_id",
+			"message": "get user failed",
+			"error":   err.Error(),
 		})
 		return
 	}
-	items, err := services.ListMigrationsByHotel(hotelID)
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+	items, err := services.ListLuggageUpdatesByHotel(*user.HotelID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list logs failed",
@@ -660,24 +799,32 @@ func ListUpdatedLogs(c *gin.Context) {
 	})
 }
 
-// ListRetrievedLogs 获取所有取出记录
-// GET /api/luggage/logs/retrieved?hotel_id=1
+// ListRetrievedLogs 获取所有取出记录（当前登录用户的酒店）
+// GET /api/luggage/logs/retrieved
 func ListRetrievedLogs(c *gin.Context) {
-	hotelIDStr := c.Query("hotel_id")
-	if hotelIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "hotel_id is required",
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if userNameStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
 		})
 		return
 	}
-	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
-	if err != nil || hotelID <= 0 {
+	user, err := repositories.GetUserByUsername(userNameStr)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid hotel_id",
+			"message": "get user failed",
+			"error":   err.Error(),
 		})
 		return
 	}
-	items, err := services.ListHistoryByHotel(hotelID, "", "")
+	if user.HotelID == nil || *user.HotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is missing",
+		})
+		return
+	}
+	items, err := services.ListHistoryByHotel(*user.HotelID, "", "")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list logs failed",

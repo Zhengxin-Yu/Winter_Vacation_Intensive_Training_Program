@@ -216,6 +216,37 @@ func ListLuggageByHotelAndStatus(hotelID int64, status string) ([]models.Luggage
 	return items, err
 }
 
+// ListLuggageByHotelGuestAndStatus 按酒店+客人姓名+状态查询寄存单列表
+func ListLuggageByHotelGuestAndStatus(hotelID int64, guestName, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{}).Where("hotel_id = ?", hotelID)
+	if guestName != "" {
+		query = query.Where("guest_name = ?", guestName)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}
+
+// ListGuestNamesByHotelAndStatus 查询某酒店下指定状态的客人姓名（去重）
+func ListGuestNamesByHotelAndStatus(hotelID int64, status string) ([]string, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var names []string
+	query := DB.Model(&models.LuggageItem{}).Where("hotel_id = ?", hotelID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Distinct("guest_name").Order("guest_name ASC").Pluck("guest_name", &names).Error
+	return names, err
+}
+
 // ListPickupCodesByUser 按用户查询取件码列表（从行李表中提取）
 func ListPickupCodesByUser(username string, status string) ([]models.LuggageItem, error) {
 	if DB == nil {

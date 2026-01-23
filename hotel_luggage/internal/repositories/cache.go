@@ -64,3 +64,4 @@ func DeleteLuggageByCodeCache(code string) error {
 	}
 	return RedisClient.Del(context.Background(), luggageByCodeKey(code)).Err()
 }
+
