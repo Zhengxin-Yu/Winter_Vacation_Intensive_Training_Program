@@ -4,7 +4,7 @@
 
 ## 功能概览
 - 用户登录（bcrypt 校验）
-- 创建用户（bcrypt 哈希）
+- 创建用户（bcrypt 哈希，角色固定为 staff）
 - 行李寄存（生成取件码 + 可选二维码 URL）
 - 行李查询（按姓名/手机号/取件码）
 - 寄存单列表（按用户/客人）
@@ -54,101 +54,103 @@ USE hotel_luggage;
 set "DB_DSN=root:123456@tcp(127.0.0.1:3306)/hotel_luggage?charset=utf8mb4&parseTime=True&loc=Local"
 ```
 
+如需新增照片 URL 字段，请执行：
+```sql
+ALTER TABLE luggage_items ADD COLUMN photo_url VARCHAR(255) NULL;
+ALTER TABLE luggage_history ADD COLUMN photo_url VARCHAR(255) NULL;
+```
+
+新增“行李寄存信息修改表”（用于 /api/luggage/logs/updated），请执行：
+```sql
+CREATE TABLE IF NOT EXISTS `行李寄存信息修改表` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `hotel_id` BIGINT NOT NULL,
+  `luggage_id` BIGINT NOT NULL,
+  `updated_by` VARCHAR(50) NOT NULL,
+  `old_data` TEXT NOT NULL,
+  `new_data` TEXT NOT NULL,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+可选：配置 Redis（用于缓存取件码查询）
+```bat
+set "REDIS_ADDR=127.0.0.1:6379"
+set "REDIS_PASSWORD="
+set "REDIS_DB=0"
+```
+
 ### 3) 启动服务
 ```bat
 cd /d C:\Users\32660\workspace\Winter_Vacation_Intensive_Training_Program\hotel_luggage
 go run ./cmd
 ```
 
-看到 `Listening and serving HTTP on :8080` 即启动成功。
+看到 `Listening and serving HTTP on 10.154.101.161:8080` 即启动成功。
 
 ## 常用接口（新结构）
 
 接口统一前缀：`/api`
 
+key-value
+redis.get( )
+redis.set( , , )
+
+
 ### 基础
 - `GET /ping` 健康检查
-- `GET /home` 首页功能入口
-- `GET /qr/:code` 二维码展示（公开）
 
 ### public 组（无需认证）
 - `POST /api/login` 登录（返回 token）
 
-### auth 组（需要登录）
+### auth 组（需要登录，统一前缀 /api/luggage）
 - `POST /api/luggage` 行李寄存
 - `GET /api/luggage/by_code` 按取件码查询
-- `GET /api/luggage/by_phone` 按手机号查询
+- `POST /api/luggage/:id/checkout` 确认取件（id 为取件码，取件人自动使用登录账号）
+- `GET /api/luggage/:id/checkout` 获取当前酒店有行李在存的客人名单
+- `GET /api/luggage/list/by_guest_name` 查询某客人正在寄存的行李
 - `PUT /api/luggage/:id` 修改寄存信息
-- `POST /api/luggage/:id/checkout` 取件（id 为取件码）
-- `POST /api/luggage/:id/transfer` 行李迁移
-- `GET /api/luggage/:id/transfers` 查询迁移历史
-- `POST /api/upload` 上传（占位）
-
-### admin 组（需要管理员权限）
-- `POST /api/admin/employees` 创建员工
-- `GET /api/admin/employees` 员工列表
-- `DELETE /api/admin/employees/:id` 删除员工
-- `POST /api/admin/admins` 创建管理员
-- `GET /api/admin/admins` 管理员列表
-- `DELETE /api/admin/admins/:id` 删除管理员
-- `POST /api/admin/hotels` 创建酒店
-- `GET /api/admin/hotels` 酒店列表
-- `PUT /api/admin/hotels/:id` 更新酒店
-- `DELETE /api/admin/hotels/:id` 删除酒店
-- `POST /api/admin/storages` 创建寄存室
-- `GET /api/admin/storages` 寄存室列表（需 hotel_id）
-- `PUT /api/admin/storages/:id` 更新寄存室状态
-- `DELETE /api/admin/storages/:id` 删除寄存室
+- `GET /api/luggage/storerooms` 获取当前酒店所有寄存室
+- `GET /api/luggage/storerooms/:id/orders` 获取该寄存室所有行李订单
+- `POST /api/luggage/storerooms` 增加寄存室（自动使用当前用户的 hotel_id）
+- `PUT /api/luggage/storerooms/:id` 软删除/停用寄存室
+- `GET /api/luggage/logs/stored` 获取当前酒店寄存记录
+- `GET /api/luggage/logs/updated` 获取当前酒店寄存信息修改记录
+- `GET /api/luggage/logs/retrieved` 获取当前酒店取出记录
 
 
 
 ## 测试示例
 
-首次创建管理员建议使用命令行工具：
+首次创建用户建议使用命令行工具：
 ```bat
-go run ./cmd/create_user -u admin -p 123456 -r admin -h 1
-```
-
-### 创建用户（管理员）
-```bat
-curl -X POST http://localhost:8080/api/admin/admins ^
-  -H "Content-Type: application/json" ^
-  -H "Authorization: Bearer <token>" ^
-  -d "{\"username\":\"admin\",\"password\":\"123456\",\"hotel_id\":1}"
+go run ./cmd/create_user -u staff_user -p 123456 -h 1
 ```
 
 ### 登录并获取 Token
 ```bat
 curl -X POST http://localhost:8080/api/login ^
   -H "Content-Type: application/json" ^
-  -d "{\"username\":\"admin\",\"password\":\"123456\"}"
+  -d "{\"username\":\"staff_user\",\"password\":\"123456\"}"
 ```
 
 登录 JSON 请求体示例：
 ```json
 {
-  "username": "admin",
+  "username": "staff_user",
   "password": "123456"
 }
 ```
 
 ## POST 接口 JSON 结构
 
-### 创建用户
+### 创建用户（角色固定为 staff）
 ```json
 {
-  "username": "admin",
+  "username": "staff_user",
   "password": "123456",
-  "role": "admin",
   "hotel_id": 1
-}
-```
-
-### 登录
-```json
-{
-  "username": "admin",
-  "password": "123456"
 }
 ```
 
@@ -162,23 +164,26 @@ curl -X POST http://localhost:8080/api/login ^
   "description": "黑色行李箱",
   "quantity": 1,
   "special_notes": "易碎品",
+  "photo_url": "http://example.com/photo.jpg",
   "storeroom_id": 1,
   "qr_code_url": "/qr/xxxxxx"
 }
 ```
 
-### 取件
+### 修改寄存（PUT /api/luggage/:id）
 ```json
 {
-  "code": "取件码",
-  "retrieved_by": "staff_user"
+  "description": "黑色行李箱",
+  "photo_url": "http://example.com/photo.jpg"
 }
 ```
+
+### 取件
+无需 Body，取件人自动使用当前登录账号。
 
 ### 行李迁移
 ```json
 {
-  "luggage_id": 1,
   "to_storeroom_id": 2,
   "migrated_by": "staff_user"
 }
@@ -187,20 +192,9 @@ curl -X POST http://localhost:8080/api/login ^
 ### 创建寄存室
 ```json
 {
-  "hotel_id": 1,
   "name": "A区-1号",
   "location": "一楼A区",
   "capacity": 50,
-  "is_active": true
-}
-```
-
-### 创建酒店
-```json
-{
-  "name": "一号酒店",
-  "address": "上海市浦东新区",
-  "phone": "021-88888888",
   "is_active": true
 }
 ```
@@ -213,18 +207,18 @@ Authorization: Bearer <token>
 ### 携带 Token 调用受保护接口
 示例（创建寄存室）：
 ```bat
-curl -X POST http://localhost:8080/api/admin/storages ^
+curl -X POST http://localhost:8080/api/luggage/storerooms ^
   -H "Content-Type: application/json" ^
   -H "Authorization: Bearer <token>" ^
-  -d "{\"hotel_id\":1,\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
+  -d "{\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
 ```
 
 ### 创建寄存室
 ```bat
-curl -X POST http://localhost:8080/api/admin/storages ^
+curl -X POST http://localhost:8080/api/luggage/storerooms ^
   -H "Content-Type: application/json" ^
   -H "Authorization: Bearer <token>" ^
-  -d "{\"hotel_id\":1,\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
+  -d "{\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
 ```
 
 ### 行李寄存
@@ -238,9 +232,7 @@ curl -X POST http://localhost:8080/api/admin/storages ^
 ### 取件
 ```bat
 curl -X POST http://localhost:8080/api/luggage/取件码/checkout ^
-  -H "Content-Type: application/json" ^
-  -H "Authorization: Bearer <token>" ^
-  -d "{\"retrieved_by\":\"用户名\"}"
+  -H "Authorization: Bearer <token>"
 ```
 
 ### 行李迁移
