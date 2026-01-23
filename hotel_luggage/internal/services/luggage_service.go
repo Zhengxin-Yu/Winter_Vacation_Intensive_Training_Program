@@ -228,6 +228,22 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 	return repositories.ListLuggageByGuest(guestName, contactPhone, status)
 }
 
+// ListLuggageByStoreroom 按寄存室查询寄存单列表
+func ListLuggageByStoreroom(storeroomID int64, status string) ([]models.LuggageItem, error) {
+	if storeroomID <= 0 {
+		return nil, errors.New("invalid storeroom id")
+	}
+	return repositories.ListLuggageByStoreroom(storeroomID, status)
+}
+
+// ListLuggageByHotelAndStatus 按酒店与状态查询寄存单列表
+func ListLuggageByHotelAndStatus(hotelID int64, status string) ([]models.LuggageItem, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListLuggageByHotelAndStatus(hotelID, status)
+}
+
 // GetLuggageDetail 获取寄存单详情
 func GetLuggageDetail(id int64) (models.LuggageItem, error) {
 	if id <= 0 {
@@ -380,4 +396,12 @@ func ListHistoryByGuest(guestName, contactPhone string) ([]models.LuggageHistory
 		return nil, errors.New("guest_name and contact_phone cannot both be empty")
 	}
 	return repositories.ListHistoryByGuest(guestName, contactPhone)
+}
+
+// ListHistoryByHotel 按酒店查询取件历史
+func ListHistoryByHotel(hotelID int64, guestName, contactPhone string) ([]models.LuggageHistory, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListHistoryByHotel(hotelID, guestName, contactPhone)
 }

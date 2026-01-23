@@ -37,14 +37,38 @@ func SetupRouter() *gin.Engine {
 	auth := api.Group("/")
 	auth.Use(middleware.JWTAuth())
 
-	// 行李寄存
-	auth.POST("/luggage", handlers.CreateLuggage)
-	auth.GET("/luggage/by_code", handlers.QueryLuggageByCode)
-	auth.GET("/luggage/by_phone", handlers.QueryLuggageByPhone)
-	auth.PUT("/luggage/:id", handlers.UpdateLuggageInfo)
-	auth.POST("/luggage/:id/checkout", handlers.CheckoutLuggageByCode)
-	auth.POST("/luggage/:id/transfer", handlers.TransferLuggageByID)
-	auth.GET("/luggage/:id/transfers", handlers.ListTransfersByLuggageID)
+	// 行李模块（统一前缀 /api/luggage）
+	luggage := auth.Group("/luggage")
+	luggage.POST("", handlers.CreateLuggage)
+	luggage.GET("/search", handlers.QueryLuggageByUserInfo)
+	luggage.GET("/by_code", handlers.QueryLuggageByCode)
+	luggage.GET("/by_phone", handlers.QueryLuggageByPhone)
+	luggage.GET("/list", handlers.ListLuggageByUser)
+	luggage.GET("/list/by_guest", handlers.ListLuggageByGuest)
+	luggage.GET("/detail/by_code", handlers.GetLuggageDetailByCode)
+	luggage.GET("/detail/by_phone", handlers.ListLuggageDetailByPhone)
+	luggage.GET("/pickup_codes", handlers.ListPickupCodesByUser)
+	luggage.GET("/pickup_codes/by_phone", handlers.ListPickupCodesByPhone)
+	luggage.GET("/history", handlers.ListHistoryByGuest)
+	luggage.GET("/users", handlers.ListUsersByHotel)
+
+	luggage.GET("/storerooms", handlers.ListStorerooms)
+	luggage.GET("/storerooms/:id/orders", handlers.ListLuggageByStoreroom)
+	luggage.POST("/storerooms", handlers.CreateStoreroom)
+	luggage.PUT("/storerooms/:id", handlers.UpdateStoreroomStatus)
+
+	luggage.GET("/logs/stored", handlers.ListStoredLogs)
+	luggage.GET("/logs/updated", handlers.ListUpdatedLogs)
+	luggage.GET("/logs/retrieved", handlers.ListRetrievedLogs)
+
+	luggage.PUT("/:id", handlers.UpdateLuggageInfo)
+	luggage.PUT("/:id/code", handlers.UpdateLuggageCode)
+	luggage.POST("/bind", handlers.BindLuggage)
+	luggage.POST("/:id/checkout", handlers.CheckoutLuggageByCode)
+	luggage.POST("/:id/transfer", handlers.TransferLuggageByID)
+	luggage.GET("/:id/transfers", handlers.ListTransfersByLuggageID)
+	luggage.GET("/:id", handlers.GetLuggageDetail)
+
 	auth.POST("/upload", handlers.Upload)
 
 	// admin 组（需要管理员权限）
@@ -67,7 +91,7 @@ func SetupRouter() *gin.Engine {
 	admin.PUT("/hotels/:id", handlers.UpdateHotel)
 	admin.DELETE("/hotels/:id", handlers.DeleteHotel)
 
-	// 寄存室管理
+	// 寄存室管理（旧路径保留）
 	admin.POST("/storages", handlers.CreateStoreroom)
 	admin.GET("/storages", handlers.ListStorerooms)
 	admin.PUT("/storages/:id", handlers.UpdateStoreroomStatus)

@@ -175,6 +175,34 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 	return items, err
 }
 
+// ListLuggageByStoreroom 按寄存室查询寄存单列表
+func ListLuggageByStoreroom(storeroomID int64, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{}).Where("storeroom_id = ?", storeroomID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}
+
+// ListLuggageByHotelAndStatus 按酒店和状态查询寄存单列表
+func ListLuggageByHotelAndStatus(hotelID int64, status string) ([]models.LuggageItem, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageItem
+	query := DB.Model(&models.LuggageItem{}).Where("hotel_id = ?", hotelID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	err := query.Order("stored_at DESC").Find(&items).Error
+	return items, err
+}
+
 // ListPickupCodesByUser 按用户查询取件码列表（从行李表中提取）
 func ListPickupCodesByUser(username string, status string) ([]models.LuggageItem, error) {
 	if DB == nil {

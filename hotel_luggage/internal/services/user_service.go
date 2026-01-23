@@ -70,6 +70,14 @@ func ListUsersByRole(role string) ([]models.User, error) {
 	return repositories.ListUsersByRole(role)
 }
 
+// ListUsersByHotel 查询指定酒店的用户列表
+func ListUsersByHotel(hotelID int64) ([]models.User, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListUsersByHotel(hotelID)
+}
+
 // DeleteUserByRole 删除指定角色的用户
 func DeleteUserByRole(id int64, role string) error {
 	if id <= 0 {

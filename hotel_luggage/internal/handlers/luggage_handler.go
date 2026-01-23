@@ -62,7 +62,7 @@ func CreateLuggage(c *gin.Context) {
 }
 
 // QueryLuggageByUserInfo 按用户信息查询寄存记录
-// GET /storage/search?guest_name=...&contact_phone=...
+// GET /api/luggage/search?guest_name=...&contact_phone=...
 func QueryLuggageByUserInfo(c *gin.Context) {
 	guestName := c.Query("guest_name")
 	contactPhone := c.Query("contact_phone")
@@ -83,7 +83,7 @@ func QueryLuggageByUserInfo(c *gin.Context) {
 }
 
 // QueryLuggageByCode 按取件码查询寄存记录
-// GET /storage/by-code?code=XXXX
+// GET /api/luggage/by_code?code=XXXX
 func QueryLuggageByCode(c *gin.Context) {
 	code := c.Query("code")
 	item, err := services.FindLuggageByCode(code)
@@ -182,7 +182,7 @@ func CheckoutLuggageByCode(c *gin.Context) {
 }
 
 // ListLuggageByUser 获取用户寄存单列表
-// GET /storage/list?username=xxx&status=stored
+// GET /api/luggage/list?username=xxx&status=stored
 func ListLuggageByUser(c *gin.Context) {
 	username := c.Query("username")
 	if username == "" {
@@ -209,7 +209,7 @@ func ListLuggageByUser(c *gin.Context) {
 }
 
 // ListLuggageByGuest 按客人姓名/手机号查询寄存单列表
-// GET /storage/list/by-guest?guest_name=...&contact_phone=...&status=stored
+// GET /api/luggage/list/by_guest?guest_name=...&contact_phone=...&status=stored
 func ListLuggageByGuest(c *gin.Context) {
 	guestName := c.Query("guest_name")
 	contactPhone := c.Query("contact_phone")
@@ -231,9 +231,12 @@ func ListLuggageByGuest(c *gin.Context) {
 }
 
 // GetLuggageDetail 获取寄存单详情
-// GET /storage/detail?id=1
+// GET /api/luggage/:id
 func GetLuggageDetail(c *gin.Context) {
-	idStr := c.Query("id")
+	idStr := c.Param("id")
+	if idStr == "" {
+		idStr = c.Query("id")
+	}
 	if idStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "id is required",
@@ -264,7 +267,7 @@ func GetLuggageDetail(c *gin.Context) {
 }
 
 // GetLuggageDetailByCode 按取件码查询寄存单详情
-// GET /storage/detail/by-code?code=XXXX
+// GET /api/luggage/detail/by_code?code=XXXX
 func GetLuggageDetailByCode(c *gin.Context) {
 	code := c.Query("code")
 	item, err := services.GetLuggageDetailByCode(code)
@@ -283,7 +286,7 @@ func GetLuggageDetailByCode(c *gin.Context) {
 }
 
 // ListLuggageDetailByPhone 按手机号查询寄存单详情列表
-// GET /storage/detail/by-phone?contact_phone=...
+// GET /api/luggage/detail/by_phone?contact_phone=...
 func ListLuggageDetailByPhone(c *gin.Context) {
 	phone := c.Query("contact_phone")
 	items, err := services.ListLuggageDetailByPhone(phone)
@@ -302,7 +305,7 @@ func ListLuggageDetailByPhone(c *gin.Context) {
 }
 
 // ListPickupCodesByUser 查看取件码列表
-// GET /pickup-codes?username=xxx&status=stored
+// GET /api/luggage/pickup_codes?username=xxx&status=stored
 func ListPickupCodesByUser(c *gin.Context) {
 	username := c.Query("username")
 	if username == "" {
@@ -343,7 +346,7 @@ func ListPickupCodesByUser(c *gin.Context) {
 }
 
 // ListPickupCodesByPhone 按客人手机号查询取件码列表
-// GET /pickup-codes/by-phone?contact_phone=...&status=stored
+// GET /api/luggage/pickup_codes/by_phone?contact_phone=...&status=stored
 func ListPickupCodesByPhone(c *gin.Context) {
 	phone := c.Query("contact_phone")
 	status := c.Query("status")
@@ -376,7 +379,7 @@ func ListPickupCodesByPhone(c *gin.Context) {
 }
 
 // UpdateLuggageInfo 修改寄存信息（不包含寄存室迁移）
-// PUT /storage/:id
+// PUT /api/luggage/:id
 func UpdateLuggageInfo(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -423,7 +426,7 @@ func UpdateLuggageInfo(c *gin.Context) {
 }
 
 // UpdateLuggageCode 修改取件码
-// PUT /storage/:id/code
+// PUT /api/luggage/:id/code
 func UpdateLuggageCode(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -458,7 +461,7 @@ func UpdateLuggageCode(c *gin.Context) {
 }
 
 // BindLuggage 绑定行李到用户
-// POST /storage/bind
+// POST /api/luggage/bind
 func BindLuggage(c *gin.Context) {
 	var req struct {
 		LuggageID int64  `json:"luggage_id" binding:"required"` // 行李ID
@@ -561,7 +564,7 @@ func Upload(c *gin.Context) {
 }
 
 // ListHistoryByGuest 查询取件历史（按客人姓名/手机号）
-// GET /storage/history/by-guest?guest_name=...&contact_phone=...
+// GET /api/luggage/history?guest_name=...&contact_phone=...
 func ListHistoryByGuest(c *gin.Context) {
 	guestName := c.Query("guest_name")
 	contactPhone := c.Query("contact_phone")
@@ -577,6 +580,124 @@ func ListHistoryByGuest(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "get history success",
+		"items":   items,
+	})
+}
+
+// ListLuggageByStoreroom 获取寄存室下的行李订单列表
+// GET /api/luggage/storerooms/:id/orders?status=stored
+func ListLuggageByStoreroom(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid storeroom id",
+		})
+		return
+	}
+	status := c.Query("status")
+	items, err := services.ListLuggageByStoreroom(id, status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list luggage success",
+		"items":   items,
+	})
+}
+
+// ListStoredLogs 获取所有寄存记录
+// GET /api/luggage/logs/stored?hotel_id=1
+func ListStoredLogs(c *gin.Context) {
+	hotelIDStr := c.Query("hotel_id")
+	if hotelIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is required",
+		})
+		return
+	}
+	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
+	if err != nil || hotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid hotel_id",
+		})
+		return
+	}
+	items, err := services.ListLuggageByHotelAndStatus(hotelID, "stored")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list logs failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list logs success",
+		"items":   items,
+	})
+}
+
+// ListUpdatedLogs 获取所有修改记录（迁移日志）
+// GET /api/luggage/logs/updated?hotel_id=1
+func ListUpdatedLogs(c *gin.Context) {
+	hotelIDStr := c.Query("hotel_id")
+	if hotelIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is required",
+		})
+		return
+	}
+	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
+	if err != nil || hotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid hotel_id",
+		})
+		return
+	}
+	items, err := services.ListMigrationsByHotel(hotelID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list logs failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list logs success",
+		"items":   items,
+	})
+}
+
+// ListRetrievedLogs 获取所有取出记录
+// GET /api/luggage/logs/retrieved?hotel_id=1
+func ListRetrievedLogs(c *gin.Context) {
+	hotelIDStr := c.Query("hotel_id")
+	if hotelIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is required",
+		})
+		return
+	}
+	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
+	if err != nil || hotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid hotel_id",
+		})
+		return
+	}
+	items, err := services.ListHistoryByHotel(hotelID, "", "")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list logs failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list logs success",
 		"items":   items,
 	})
 }

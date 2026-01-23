@@ -44,6 +44,16 @@ func ListUsersByRole(role string) ([]models.User, error) {
 	return users, err
 }
 
+// ListUsersByHotel 按酒店查询用户列表
+func ListUsersByHotel(hotelID int64) ([]models.User, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var users []models.User
+	err := DB.Where("hotel_id = ?", hotelID).Order("id ASC").Find(&users).Error
+	return users, err
+}
+
 // DeleteUserByID 删除用户
 func DeleteUserByID(id int64) error {
 	if DB == nil {

@@ -96,3 +96,11 @@ func ListMigrationsByLuggageID(luggageID int64) ([]models.LuggageMigration, erro
 	}
 	return repositories.ListMigrationsByLuggageID(luggageID)
 }
+
+// ListMigrationsByHotel 查询某酒店的迁移日志
+func ListMigrationsByHotel(hotelID int64) ([]models.LuggageMigration, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListMigrationsByHotel(hotelID)
+}
