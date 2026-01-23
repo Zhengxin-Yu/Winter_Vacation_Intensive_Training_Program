@@ -175,6 +175,19 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 	return items, err
 }
 
+// ListGuestNames 查询所有寄存客人姓名（去重）
+func ListGuestNames() ([]string, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var names []string
+	err := DB.Model(&models.LuggageItem{}).
+		Distinct("guest_name").
+		Order("guest_name ASC").
+		Pluck("guest_name", &names).Error
+	return names, err
+}
+
 // ListLuggageByStoreroom 按寄存室查询寄存单列表
 func ListLuggageByStoreroom(storeroomID int64, status string) ([]models.LuggageItem, error) {
 	if DB == nil {

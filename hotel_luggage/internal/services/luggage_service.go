@@ -136,6 +136,9 @@ func FindLuggageByCode(code string) (models.LuggageItem, error) {
 	if code == "" {
 		return models.LuggageItem{}, errors.New("code is empty")
 	}
+	if item, ok, err := repositories.GetLuggageByCodeCache(code); err == nil && ok {
+		return item, nil
+	}
 	item, err := repositories.FindLuggageByCode(code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -143,6 +146,7 @@ func FindLuggageByCode(code string) (models.LuggageItem, error) {
 		}
 		return models.LuggageItem{}, err
 	}
+	_ = repositories.SetLuggageByCodeCache(code, item)
 	return item, nil
 }
 
@@ -180,6 +184,7 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 	if err := repositories.UpdateLuggageRetrieved(item.ID, user.Username); err != nil {
 		return models.LuggageItem{}, err
 	}
+	_ = repositories.DeleteLuggageByCodeCache(code)
 
 	// 写入取件历史
 	history := models.LuggageHistory{
@@ -226,6 +231,11 @@ func ListLuggageByGuest(guestName, contactPhone, status string) ([]models.Luggag
 		return nil, errors.New("guest_name and contact_phone cannot both be empty")
 	}
 	return repositories.ListLuggageByGuest(guestName, contactPhone, status)
+}
+
+// ListGuestNames 获取所有寄存客人姓名（去重）
+func ListGuestNames() ([]string, error) {
+	return repositories.ListGuestNames()
 }
 
 // ListLuggageByStoreroom 按寄存室查询寄存单列表

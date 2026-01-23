@@ -14,6 +14,8 @@ import (
 func main() {
 	// 初始化数据库连接（失败会直接退出）
 	repositories.InitDB()
+	// 初始化 Redis（失败则自动降级）
+	repositories.InitRedis()
 
 	// 初始化 Gin 路由
 	r := router.SetupRouter()

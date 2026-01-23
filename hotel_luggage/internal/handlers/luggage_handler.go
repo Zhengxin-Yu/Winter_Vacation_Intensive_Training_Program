@@ -155,18 +155,16 @@ func RetrieveLuggage(c *gin.Context) {
 // POST /api/luggage/:id/checkout
 func CheckoutLuggageByCode(c *gin.Context) {
 	code := c.Param("id")
-	var req struct {
-		RetrievedBy string `json:"retrieved_by" binding:"required"` // 操作员用户名
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid request",
-			"error":   err.Error(),
+	username, _ := c.Get("username")
+	retrievedBy, _ := username.(string)
+	if retrievedBy == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
 		})
 		return
 	}
 
-	item, err := services.RetrieveLuggage(code, req.RetrievedBy)
+	item, err := services.RetrieveLuggage(code, retrievedBy)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "checkout failed",
@@ -181,29 +179,20 @@ func CheckoutLuggageByCode(c *gin.Context) {
 	})
 }
 
-// ListLuggageByUser 获取用户寄存单列表
-// GET /api/luggage/list?username=xxx&status=stored
+// ListLuggageByUser 获取所有寄存客人姓名（去重）
+// GET /api/luggage/list
 func ListLuggageByUser(c *gin.Context) {
-	username := c.Query("username")
-	if username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "username is required",
-		})
-		return
-	}
-
-	status := c.Query("status")
-	items, err := services.ListLuggageByUser(username, status)
+	items, err := services.ListGuestNames()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "list luggage failed",
+			"message": "list guest names failed",
 			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "list luggage success",
+		"message": "list guest names success",
 		"items":   items,
 	})
 }
