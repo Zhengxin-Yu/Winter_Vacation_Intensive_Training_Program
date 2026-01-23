@@ -61,3 +61,29 @@ func CreateUser(username, password, role string, hotelID *int64) (models.User, e
 	}
 	return user, nil
 }
+
+// ListUsersByRole 查询用户列表
+func ListUsersByRole(role string) ([]models.User, error) {
+	if role != "staff" && role != "admin" {
+		return nil, errors.New("invalid role")
+	}
+	return repositories.ListUsersByRole(role)
+}
+
+// DeleteUserByRole 删除指定角色的用户
+func DeleteUserByRole(id int64, role string) error {
+	if id <= 0 {
+		return errors.New("invalid id")
+	}
+	user, err := repositories.GetUserByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user not found")
+		}
+		return err
+	}
+	if user.Role != role {
+		return errors.New("role mismatch")
+	}
+	return repositories.DeleteUserByID(id)
+}

@@ -18,9 +18,12 @@ type CreateStoreroomRequest struct {
 	IsActive bool
 }
 
-// ListStorerooms 获取寄存室列表
-func ListStorerooms() ([]models.LuggageStoreroom, error) {
-	return repositories.ListStorerooms()
+// ListStorerooms 获取寄存室列表（按酒店）
+func ListStorerooms(hotelID int64) ([]models.LuggageStoreroom, error) {
+	if hotelID <= 0 {
+		return nil, errors.New("invalid hotel id")
+	}
+	return repositories.ListStorerooms(hotelID)
 }
 
 // CreateStoreroom 创建寄存室

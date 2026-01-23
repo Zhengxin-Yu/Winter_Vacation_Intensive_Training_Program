@@ -13,3 +13,13 @@ func CreateMigrationLog(log *models.LuggageMigration) error {
 	}
 	return DB.Create(log).Error
 }
+
+// ListMigrationsByLuggageID 查询迁移历史
+func ListMigrationsByLuggageID(luggageID int64) ([]models.LuggageMigration, error) {
+	if DB == nil {
+		return nil, errors.New("db not initialized")
+	}
+	var items []models.LuggageMigration
+	err := DB.Where("luggage_id = ?", luggageID).Order("migrated_at DESC").Find(&items).Error
+	return items, err
+}

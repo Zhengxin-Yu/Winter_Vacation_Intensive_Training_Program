@@ -25,7 +25,22 @@ type UpdateStoreroomStatusRequest struct {
 
 // ListStorerooms 获取寄存室列表
 func ListStorerooms(c *gin.Context) {
-	rooms, err := services.ListStorerooms()
+	hotelIDStr := c.Query("hotel_id")
+	if hotelIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "hotel_id is required",
+		})
+		return
+	}
+	hotelID, err := strconv.ParseInt(hotelIDStr, 10, 64)
+	if err != nil || hotelID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid hotel_id",
+		})
+		return
+	}
+
+	rooms, err := services.ListStorerooms(hotelID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "list storerooms failed",

@@ -101,6 +101,25 @@ func QueryLuggageByCode(c *gin.Context) {
 	})
 }
 
+// QueryLuggageByPhone 按手机号查询寄存记录
+// GET /api/luggage/by_phone?contact_phone=...
+func QueryLuggageByPhone(c *gin.Context) {
+	phone := c.Query("contact_phone")
+	items, err := services.FindLuggageByUserInfo("", phone)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "query luggage failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "query luggage success",
+		"items":   items,
+	})
+}
+
 // RetrieveLuggage 取件接口（通过取件码）
 func RetrieveLuggage(c *gin.Context) {
 	var req struct {
@@ -129,6 +148,36 @@ func RetrieveLuggage(c *gin.Context) {
 		"luggage_id":    item.ID,
 		"status":        item.Status,
 		"retrieved_by":  req.RetrievedBy,
+	})
+}
+
+// CheckoutLuggageByCode 通过取件码取件
+// POST /api/luggage/:id/checkout
+func CheckoutLuggageByCode(c *gin.Context) {
+	code := c.Param("id")
+	var req struct {
+		RetrievedBy string `json:"retrieved_by" binding:"required"` // 操作员用户名
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	item, err := services.RetrieveLuggage(code, req.RetrievedBy)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "checkout failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "checkout success",
+		"luggage_id": item.ID,
 	})
 }
 
@@ -433,6 +482,81 @@ func BindLuggage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "bind luggage success",
+	})
+}
+
+// TransferLuggageByID 迁移行李
+// POST /api/luggage/:id/transfer
+func TransferLuggageByID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid luggage id",
+		})
+		return
+	}
+
+	var req struct {
+		ToStoreroomID int64  `json:"to_storeroom_id" binding:"required"`
+		MigratedBy    string `json:"migrated_by" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	_, err = services.MigrateLuggage(services.MigrateLuggageRequest{
+		LuggageID:     id,
+		ToStoreroomID: req.ToStoreroomID,
+		MigratedBy:    req.MigratedBy,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "transfer failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "transfer success",
+	})
+}
+
+// ListTransfersByLuggageID 查询迁移历史
+// GET /api/luggage/:id/transfers
+func ListTransfersByLuggageID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid luggage id",
+		})
+		return
+	}
+
+	items, err := services.ListMigrationsByLuggageID(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "list transfers failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "list transfers success",
+		"items":   items,
+	})
+}
+
+// Upload 占位接口（上传功能）
+// POST /api/upload
+func Upload(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"message": "upload not implemented",
 	})
 }
 

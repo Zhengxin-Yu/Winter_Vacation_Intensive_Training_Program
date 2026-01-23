@@ -88,3 +88,11 @@ func MigrateLuggage(req MigrateLuggageRequest) (models.LuggageMigration, error) 
 
 	return log, nil
 }
+
+// ListMigrationsByLuggageID 查询迁移历史
+func ListMigrationsByLuggageID(luggageID int64) ([]models.LuggageMigration, error) {
+	if luggageID <= 0 {
+		return nil, errors.New("invalid luggage id")
+	}
+	return repositories.ListMigrationsByLuggageID(luggageID)
+}

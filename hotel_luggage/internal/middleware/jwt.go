@@ -37,3 +37,18 @@ func JWTAuth() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// AdminOnly 限制管理员访问
+func AdminOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get("role")
+		if role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"message": "admin only",
+			})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}

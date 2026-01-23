@@ -16,13 +16,13 @@ func GetStoreroomByID(id int64) (models.LuggageStoreroom, error) {
 	return room, err
 }
 
-// ListStorerooms 查询寄存室列表
-func ListStorerooms() ([]models.LuggageStoreroom, error) {
+// ListStorerooms 查询寄存室列表（按酒店）
+func ListStorerooms(hotelID int64) ([]models.LuggageStoreroom, error) {
 	if DB == nil {
 		return nil, errors.New("db not initialized")
 	}
 	var rooms []models.LuggageStoreroom
-	err := DB.Order("id ASC").Find(&rooms).Error
+	err := DB.Where("hotel_id = ?", hotelID).Order("id ASC").Find(&rooms).Error
 	return rooms, err
 }
 

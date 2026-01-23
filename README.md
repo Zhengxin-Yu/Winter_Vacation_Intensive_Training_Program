@@ -62,88 +62,199 @@ go run ./cmd
 
 看到 `Listening and serving HTTP on :8080` 即启动成功。
 
-## 常用接口
+## 常用接口（新结构）
+
+接口统一前缀：`/api`
 
 ### 基础
 - `GET /ping` 健康检查
 - `GET /home` 首页功能入口
+- `GET /qr/:code` 二维码展示（公开）
 
-### 用户
-- `POST /users` 创建用户
-- `POST /login` 登录
+### public 组（无需认证）
+- `POST /api/login` 登录（返回 token）
 
-角色说明：
-- `admin` 管理者
-- `staff` 员工
-- `guest` 客人
+### auth 组（需要登录）
+- `POST /api/luggage` 行李寄存
+- `GET /api/luggage/by_code` 按取件码查询
+- `GET /api/luggage/by_phone` 按手机号查询
+- `PUT /api/luggage/:id` 修改寄存信息
+- `POST /api/luggage/:id/checkout` 取件（id 为取件码）
+- `POST /api/luggage/:id/transfer` 行李迁移
+- `GET /api/luggage/:id/transfers` 查询迁移历史
+- `POST /api/upload` 上传（占位）
 
-### 行李寄存
-- `POST /storage` 创建寄存记录（需要 guest_name + staff_name）
-- `POST /storage/retrieve` 取件（retrieved_by 为用户名）
-- `GET /storage/search` 按姓名/手机号查询
-- `GET /storage/by-code` 按取件码查询
-- `PUT /storage/:id` 修改寄存信息
-- `PUT /storage/:id/code` 修改取件码
-- `POST /storage/bind` 行李绑定到用户（用户名）
+### admin 组（需要管理员权限）
+- `POST /api/admin/employees` 创建员工
+- `GET /api/admin/employees` 员工列表
+- `DELETE /api/admin/employees/:id` 删除员工
+- `POST /api/admin/admins` 创建管理员
+- `GET /api/admin/admins` 管理员列表
+- `DELETE /api/admin/admins/:id` 删除管理员
+- `POST /api/admin/hotels` 创建酒店
+- `GET /api/admin/hotels` 酒店列表
+- `PUT /api/admin/hotels/:id` 更新酒店
+- `DELETE /api/admin/hotels/:id` 删除酒店
+- `POST /api/admin/storages` 创建寄存室
+- `GET /api/admin/storages` 寄存室列表（需 hotel_id）
+- `PUT /api/admin/storages/:id` 更新寄存室状态
+- `DELETE /api/admin/storages/:id` 删除寄存室
 
-### 寄存单
-- `GET /storage/list` 按用户查询列表
-- `GET /storage/list/by-guest` 按客人姓名/手机号查询列表
-- `GET /storage/detail` 按 ID 查询详情
-- `GET /storage/detail/by-code` 按取件码查询详情
-- `GET /storage/detail/by-phone` 按手机号查询详情
-- `GET /storage/history/by-guest` 按客人姓名/手机号查询取件历史
 
-### 取件码
-- `GET /pickup-codes` 按用户名查询取件码列表
-- `GET /pickup-codes/by-phone` 按手机号查询取件码列表
-
-### 寄存室管理
-- `GET /storerooms` 列表
-- `POST /storerooms` 创建
-- `DELETE /storerooms/:id` 删除（有行李不能删）
-- `PUT /storerooms/:id/status` 更新状态
-- `POST /storerooms/migrate` 行李迁移
-
-### 二维码
-- `GET /qr/:code` 生成并返回二维码 PNG
-
-### 前端测试页
-- `frontend_testing/index.html` 用于简单接口测试
 
 ## 测试示例
 
-### 创建用户
+首次创建管理员建议使用命令行工具：
 ```bat
-curl -X POST http://localhost:8080/users ^
+go run ./cmd/create_user -u admin -p 123456 -r admin -h 1
+```
+
+### 创建用户（管理员）
+```bat
+curl -X POST http://localhost:8080/api/admin/admins ^
   -H "Content-Type: application/json" ^
-  -d "{\"username\":\"admin\",\"password\":\"123456\",\"role\":\"admin\"}"
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"username\":\"admin\",\"password\":\"123456\",\"hotel_id\":1}"
+```
+
+### 登录并获取 Token
+```bat
+curl -X POST http://localhost:8080/api/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"username\":\"admin\",\"password\":\"123456\"}"
+```
+
+登录 JSON 请求体示例：
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+## POST 接口 JSON 结构
+
+### 创建用户
+```json
+{
+  "username": "admin",
+  "password": "123456",
+  "role": "admin",
+  "hotel_id": 1
+}
+```
+
+### 登录
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+### 创建寄存
+```json
+{
+  "guest_name": "张三",
+  "staff_name": "staff_user",
+  "contact_phone": "13800000000",
+  "contact_email": "zhangsan@example.com",
+  "description": "黑色行李箱",
+  "quantity": 1,
+  "special_notes": "易碎品",
+  "storeroom_id": 1,
+  "qr_code_url": "/qr/xxxxxx"
+}
+```
+
+### 取件
+```json
+{
+  "code": "取件码",
+  "retrieved_by": "staff_user"
+}
+```
+
+### 行李迁移
+```json
+{
+  "luggage_id": 1,
+  "to_storeroom_id": 2,
+  "migrated_by": "staff_user"
+}
+```
+
+### 创建寄存室
+```json
+{
+  "hotel_id": 1,
+  "name": "A区-1号",
+  "location": "一楼A区",
+  "capacity": 50,
+  "is_active": true
+}
+```
+
+### 创建酒店
+```json
+{
+  "name": "一号酒店",
+  "address": "上海市浦东新区",
+  "phone": "021-88888888",
+  "is_active": true
+}
+```
+
+返回中包含 `token`，后续请求需携带：
+```
+Authorization: Bearer <token>
+```
+
+### 携带 Token 调用受保护接口
+示例（创建寄存室）：
+```bat
+curl -X POST http://localhost:8080/api/admin/storages ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"hotel_id\":1,\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
 ```
 
 ### 创建寄存室
 ```bat
-curl -X POST http://localhost:8080/storerooms ^
+curl -X POST http://localhost:8080/api/admin/storages ^
   -H "Content-Type: application/json" ^
-  -d "{\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"hotel_id\":1,\"name\":\"A区-1号\",\"location\":\"一楼A区\",\"capacity\":50,\"is_active\":true}"
 ```
 
 ### 行李寄存
 ```bat
-  curl -X POST http://localhost:8080/storage ^
+  curl -X POST http://localhost:8080/api/luggage ^
     -H "Content-Type: application/json" ^
-    -d "{\"guest_name\":\"guest_user\",\"staff_name\":\"staff_user\",\"contact_phone\":\"13800000000\",\"description\":\"黑色行李箱\",\"quantity\":1,\"storeroom_id\":1}"
+    -H "Authorization: Bearer <token>" ^
+    -d "{\"guest_name\":\"张三\",\"staff_name\":\"staff_user\",\"contact_phone\":\"13800000000\",\"description\":\"黑色行李箱\",\"quantity\":1,\"storeroom_id\":1}"
 ```
 
 ### 取件
 ```bat
-curl -X POST http://localhost:8080/storage/retrieve ^
+curl -X POST http://localhost:8080/api/luggage/取件码/checkout ^
   -H "Content-Type: application/json" ^
-  -d "{\"code\":\"取件码\",\"retrieved_by\":\"用户名\"}"
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"retrieved_by\":\"用户名\"}"
 ```
 
-### 查询取件历史（按客人姓名/手机号）
+### 行李迁移
 ```bat
-curl "http://localhost:8080/storage/history/by-guest?guest_name=张三&contact_phone=13800000000"
+curl -X POST http://localhost:8080/api/luggage/1/transfer ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"to_storeroom_id\":2,\"migrated_by\":\"用户名\"}"
+```
+
+### 查询迁移历史
+```bat
+curl "http://localhost:8080/api/luggage/1/transfers" ^
+  -H "Authorization: Bearer <token>"
 ```
 
 ### 查看二维码
