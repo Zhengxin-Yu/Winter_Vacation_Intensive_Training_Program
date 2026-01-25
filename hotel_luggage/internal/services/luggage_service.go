@@ -22,6 +22,7 @@ type CreateLuggageRequest struct {
 	Quantity     int
 	SpecialNotes string
 	PhotoURL     string
+	PhotoURLs    []string
 	StoreroomID  int64
 	StaffName    string
 	QRCodeURL    string
@@ -40,6 +41,12 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 	}
 	if req.Quantity <= 0 {
 		req.Quantity = 1
+	}
+	if len(req.PhotoURLs) == 0 && req.PhotoURL != "" {
+		req.PhotoURLs = []string{req.PhotoURL}
+	}
+	if len(req.PhotoURLs) > 0 && req.PhotoURL == "" {
+		req.PhotoURL = req.PhotoURLs[0]
 	}
 
 	staff, err := repositories.GetUserByUsername(req.StaffName)
@@ -107,6 +114,7 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		Quantity:      req.Quantity,
 		SpecialNotes:  req.SpecialNotes,
 		PhotoURL:      req.PhotoURL,
+		PhotoURLs:     req.PhotoURLs,
 		HotelID:       room.HotelID,
 		StoreroomID:   req.StoreroomID,
 		RetrievalCode: code,
@@ -199,6 +207,7 @@ func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageIte
 		Quantity:      item.Quantity,
 		SpecialNotes:  item.SpecialNotes,
 		PhotoURL:      item.PhotoURL,
+		PhotoURLs:     item.PhotoURLs,
 		HotelID:       item.HotelID,
 		StoreroomID:   item.StoreroomID,
 		RetrievalCode: item.RetrievalCode,
@@ -348,6 +357,7 @@ type UpdateLuggageInfoRequest struct {
 	Quantity     *int
 	SpecialNotes *string
 	PhotoURL     *string
+	PhotoURLs    *[]string
 	UpdatedBy    string
 }
 
@@ -390,6 +400,18 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 	if req.PhotoURL != nil {
 		updates["photo_url"] = *req.PhotoURL
 	}
+	if req.PhotoURLs != nil {
+		data, err := json.Marshal(*req.PhotoURLs)
+		if err != nil {
+			return err
+		}
+		updates["photo_urls"] = string(data)
+		if len(*req.PhotoURLs) > 0 {
+			updates["photo_url"] = (*req.PhotoURLs)[0]
+		} else {
+			updates["photo_url"] = ""
+		}
+	}
 
 	if err := repositories.UpdateLuggageInfo(id, updates); err != nil {
 		return err
@@ -416,6 +438,14 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 	}
 	if req.PhotoURL != nil {
 		updated.PhotoURL = *req.PhotoURL
+	}
+	if req.PhotoURLs != nil {
+		updated.PhotoURLs = *req.PhotoURLs
+		if len(*req.PhotoURLs) > 0 {
+			updated.PhotoURL = (*req.PhotoURLs)[0]
+		} else {
+			updated.PhotoURL = ""
+		}
 	}
 
 	oldData, _ := json.Marshal(item)

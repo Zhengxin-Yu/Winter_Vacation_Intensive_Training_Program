@@ -1,8 +1,15 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"hotel_luggage/internal/repositories"
 	"hotel_luggage/internal/services"
@@ -19,8 +26,9 @@ type CreateLuggageRequest struct {
 	Quantity     int    `json:"quantity"`                        // 行李数量
 	SpecialNotes string `json:"special_notes"`                   // 特殊备注
 	PhotoURL     string `json:"photo_url"`                       // 照片URL（可选）
+	PhotoURLs    []string `json:"photo_urls"`                    // 多张照片URL（可选）
 	StoreroomID  int64  `json:"storeroom_id" binding:"required"` // 寄存室ID
-	StaffName    string `json:"staff_name" binding:"required"`   // 操作员用户名
+	StaffName    string `json:"staff_name"`                      // 操作员用户名（可选，不传则用登录账号）
 	QRCodeURL    string `json:"qr_code_url"`                     // 二维码URL（可选）
 }
 
@@ -35,6 +43,17 @@ func CreateLuggage(c *gin.Context) {
 		})
 		return
 	}
+	username, _ := c.Get("username")
+	userNameStr, _ := username.(string)
+	if req.StaffName == "" {
+		req.StaffName = userNameStr
+	}
+	if req.StaffName == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "missing user info",
+		})
+		return
+	}
 
 	item, err := services.CreateLuggage(services.CreateLuggageRequest{
 		GuestName:    req.GuestName,
@@ -44,6 +63,7 @@ func CreateLuggage(c *gin.Context) {
 		Quantity:     req.Quantity,
 		SpecialNotes: req.SpecialNotes,
 		PhotoURL:     req.PhotoURL,
+		PhotoURLs:    req.PhotoURLs,
 		StoreroomID:  req.StoreroomID,
 		StaffName:    req.StaffName,
 		QRCodeURL:    req.QRCodeURL,
@@ -62,6 +82,7 @@ func CreateLuggage(c *gin.Context) {
 		"retrieval_code": item.RetrievalCode,
 		"qrcode_url":     item.QRCodeURL,
 		"photo_url":      item.PhotoURL,
+		"photo_urls":     item.PhotoURLs,
 	})
 }
 
@@ -497,6 +518,7 @@ func UpdateLuggageInfo(c *gin.Context) {
 		Quantity     *int    `json:"quantity"`
 		SpecialNotes *string `json:"special_notes"`
 		PhotoURL     *string `json:"photo_url"`
+		PhotoURLs    *[]string `json:"photo_urls"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -523,6 +545,7 @@ func UpdateLuggageInfo(c *gin.Context) {
 		Quantity:     req.Quantity,
 		SpecialNotes: req.SpecialNotes,
 		PhotoURL:     req.PhotoURL,
+		PhotoURLs:    req.PhotoURLs,
 		UpdatedBy:    userNameStr,
 	}); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -667,11 +690,93 @@ func ListTransfersByLuggageID(c *gin.Context) {
 	})
 }
 
-// Upload 占位接口（上传功能）
+// Upload 上传图片接口（multipart/form-data）
 // POST /api/upload
 func Upload(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"message": "upload not implemented",
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "upload failed",
+			"error":   "missing file",
+		})
+		return
+	}
+	const maxSize = 5 * 1024 * 1024
+	if file.Size > maxSize {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "upload failed",
+			"error":   "file too large",
+		})
+		return
+	}
+
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "upload failed",
+			"error":   "invalid file extension",
+		})
+		return
+	}
+	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
+	if !allowed[ext] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "upload failed",
+			"error":   "unsupported file type",
+		})
+		return
+	}
+
+	now := time.Now()
+	subDir := filepath.Join("uploads", now.Format("2006"), now.Format("01"))
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "upload failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	nameBytes := make([]byte, 16)
+	if _, err := rand.Read(nameBytes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "upload failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+	fileName := hex.EncodeToString(nameBytes) + ext
+	savePath := filepath.Join(subDir, fileName)
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "upload failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	relativeURL := fmt.Sprintf("/uploads/%s/%s/%s", now.Format("2006"), now.Format("01"), fileName)
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	fullURL := fmt.Sprintf("%s://%s%s", scheme, c.Request.Host, relativeURL)
+	contentType := file.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = mime.TypeByExtension(ext)
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "upload success",
+		"url":           fullURL,
+		"relative_url":  relativeURL,
+		"content_type":  contentType,
+		"size":          file.Size,
+		"file_name":     fileName,
+		"max_size_byte": maxSize,
 	})
 }
 

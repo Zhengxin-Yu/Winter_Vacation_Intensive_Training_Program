@@ -12,6 +12,10 @@ import (
 func SetupRouter() *gin.Engine {
 	// gin.Default() 自带 Logger 和 Recovery 中间件
 	r := gin.Default()
+	r.MaxMultipartMemory = 5 << 20
+
+	// 静态文件
+	r.Static("/uploads", "./uploads")
 
 	// 健康检查接口：用于确认服务是否能正常响应
 	r.GET("/ping", func(c *gin.Context) {
@@ -48,6 +52,8 @@ func SetupRouter() *gin.Engine {
 	luggage.PUT("/:id", handlers.UpdateLuggageInfo)
 	luggage.POST("/:id/checkout", handlers.CheckoutLuggageByCode)
 	luggage.GET("/:id/checkout", handlers.GetCheckoutInfoByCode)
+
+	auth.POST("/upload", handlers.Upload)
 
 	return r
 }

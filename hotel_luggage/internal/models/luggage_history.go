@@ -1,6 +1,11 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // LuggageHistory 对应 luggage_history 表（取件历史记录）
 type LuggageHistory struct {
@@ -13,6 +18,8 @@ type LuggageHistory struct {
 	Quantity      int       `gorm:"column:quantity;not null;default:1"`    // 行李数量
 	SpecialNotes  string    `gorm:"column:special_notes;type:text"`        // 特殊备注
 	PhotoURL      string    `gorm:"column:photo_url;size:255" json:"photo_url"` // 照片URL
+	PhotoURLsRaw  string    `gorm:"column:photo_urls;type:text" json:"-"`       // 多图JSON（数据库字段）
+	PhotoURLs     []string  `gorm:"-" json:"photo_urls,omitempty"`              // 多图数组（对外）
 	HotelID       int64     `gorm:"column:hotel_id;not null"`              // 酒店ID
 	StoreroomID   int64     `gorm:"column:storeroom_id;not null"`          // 寄存室ID
 	RetrievalCode string    `gorm:"column:retrieval_code;size:8;not null"` // 取件码
@@ -28,4 +35,29 @@ type LuggageHistory struct {
 // TableName 指定数据库表名
 func (LuggageHistory) TableName() string {
 	return "luggage_history"
+}
+
+// BeforeSave 在保存前把 PhotoURLs 写入 PhotoURLsRaw
+func (item *LuggageHistory) BeforeSave(tx *gorm.DB) error {
+	if item.PhotoURLs != nil {
+		data, err := json.Marshal(item.PhotoURLs)
+		if err != nil {
+			return err
+		}
+		item.PhotoURLsRaw = string(data)
+	}
+	return nil
+}
+
+// AfterFind 在读取后把 PhotoURLsRaw 解析为 PhotoURLs
+func (item *LuggageHistory) AfterFind(tx *gorm.DB) error {
+	if item.PhotoURLsRaw == "" {
+		return nil
+	}
+	var urls []string
+	if err := json.Unmarshal([]byte(item.PhotoURLsRaw), &urls); err != nil {
+		return err
+	}
+	item.PhotoURLs = urls
+	return nil
 }
