@@ -18,36 +18,36 @@ func luggageByCodeKey(code string) string {
 }
 
 // GetLuggageByCodeCache 从缓存中读取行李信息
-func GetLuggageByCodeCache(code string) (models.LuggageItem, bool, error) {
+func GetLuggageByCodeCache(code string) ([]models.LuggageItem, bool, error) {
 	if RedisClient == nil {
-		return models.LuggageItem{}, false, nil
+		return nil, false, nil
 	}
 	if code == "" {
-		return models.LuggageItem{}, false, errors.New("code is empty")
+		return nil, false, errors.New("code is empty")
 	}
 	val, err := RedisClient.Get(context.Background(), luggageByCodeKey(code)).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return models.LuggageItem{}, false, nil
+			return nil, false, nil
 		}
-		return models.LuggageItem{}, false, err
+		return nil, false, err
 	}
-	var item models.LuggageItem
-	if err := json.Unmarshal([]byte(val), &item); err != nil {
-		return models.LuggageItem{}, false, err
+	var items []models.LuggageItem
+	if err := json.Unmarshal([]byte(val), &items); err != nil {
+		return nil, false, err
 	}
-	return item, true, nil
+	return items, true, nil
 }
 
 // SetLuggageByCodeCache 写入行李信息到缓存
-func SetLuggageByCodeCache(code string, item models.LuggageItem) error {
+func SetLuggageByCodeCache(code string, items []models.LuggageItem) error {
 	if RedisClient == nil {
 		return nil
 	}
 	if code == "" {
 		return errors.New("code is empty")
 	}
-	data, err := json.Marshal(item)
+	data, err := json.Marshal(items)
 	if err != nil {
 		return err
 	}

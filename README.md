@@ -60,6 +60,12 @@ ALTER TABLE luggage_items ADD COLUMN photo_url VARCHAR(255) NULL;
 ALTER TABLE luggage_history ADD COLUMN photo_url VARCHAR(255) NULL;
 ```
 
+新增多图字段，请执行：
+```sql
+ALTER TABLE luggage_items ADD COLUMN photo_urls TEXT NULL;
+ALTER TABLE luggage_history ADD COLUMN photo_urls TEXT NULL;
+```
+
 新增“行李寄存信息修改表”（用于 /api/luggage/logs/updated），请执行：
 ```sql
 CREATE TABLE IF NOT EXISTS `行李寄存信息修改表` (

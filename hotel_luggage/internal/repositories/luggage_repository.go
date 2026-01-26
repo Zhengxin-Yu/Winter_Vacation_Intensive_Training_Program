@@ -56,13 +56,13 @@ func FindLuggageByUserInfo(guestName, contactPhone string) ([]models.LuggageItem
 }
 
 // FindLuggageByCode 按取件码查询寄存记录
-func FindLuggageByCode(code string) (models.LuggageItem, error) {
+func FindLuggageByCode(code string) ([]models.LuggageItem, error) {
 	if DB == nil {
-		return models.LuggageItem{}, errors.New("db not initialized")
+		return nil, errors.New("db not initialized")
 	}
-	var item models.LuggageItem
-	err := DB.Where("retrieval_code = ?", code).First(&item).Error
-	return item, err
+	var items []models.LuggageItem
+	err := DB.Where("retrieval_code = ?", code).Order("stored_at DESC").Find(&items).Error
+	return items, err
 }
 
 // GetLuggageByID 按ID查询行李记录

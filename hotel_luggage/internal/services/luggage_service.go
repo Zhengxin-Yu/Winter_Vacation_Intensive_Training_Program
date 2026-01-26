@@ -23,6 +23,7 @@ type CreateLuggageRequest struct {
 	SpecialNotes string
 	PhotoURL     string
 	PhotoURLs    []string
+	RetrievalCode string
 	StoreroomID  int64
 	StaffName    string
 	QRCodeURL    string
@@ -86,24 +87,26 @@ func CreateLuggage(req CreateLuggageRequest) (models.LuggageItem, error) {
 		}
 	}
 
-	// 生成唯一取件码（最多尝试 5 次）
-	var code string
-	for i := 0; i < 5; i++ {
-		c, err := utils.GenerateCode(8)
-		if err != nil {
-			return models.LuggageItem{}, err
-		}
-		exists, err := repositories.RetrievalCodeExists(c)
-		if err != nil {
-			return models.LuggageItem{}, err
-		}
-		if !exists {
-			code = c
-			break
-		}
-	}
+	// 生成或使用取件码（6 位数字，最多尝试 5 次）
+	code := req.RetrievalCode
 	if code == "" {
-		return models.LuggageItem{}, fmt.Errorf("failed to generate unique retrieval code")
+		for i := 0; i < 5; i++ {
+			c, err := utils.GenerateCode(6)
+			if err != nil {
+				return models.LuggageItem{}, err
+			}
+			exists, err := repositories.RetrievalCodeExists(c)
+			if err != nil {
+				return models.LuggageItem{}, err
+			}
+			if !exists {
+				code = c
+				break
+			}
+		}
+		if code == "" {
+			return models.LuggageItem{}, fmt.Errorf("failed to generate unique retrieval code")
+		}
 	}
 
 	item := models.LuggageItem{
@@ -143,91 +146,103 @@ func FindLuggageByUserInfo(guestName, contactPhone string) ([]models.LuggageItem
 }
 
 // FindLuggageByCode 按取件码查询寄存记录
-func FindLuggageByCode(code string) (models.LuggageItem, error) {
+func FindLuggageByCode(code string) ([]models.LuggageItem, error) {
 	if code == "" {
-		return models.LuggageItem{}, errors.New("code is empty")
+		return nil, errors.New("code is empty")
 	}
-	if item, ok, err := repositories.GetLuggageByCodeCache(code); err == nil && ok {
-		return item, nil
+	if items, ok, err := repositories.GetLuggageByCodeCache(code); err == nil && ok {
+		return items, nil
 	}
-	item, err := repositories.FindLuggageByCode(code)
+	items, err := repositories.FindLuggageByCode(code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.LuggageItem{}, errors.New("luggage not found")
+			return nil, errors.New("luggage not found")
 		}
-		return models.LuggageItem{}, err
+		return nil, err
 	}
-	_ = repositories.SetLuggageByCodeCache(code, item)
-	return item, nil
+	if len(items) == 0 {
+		return nil, errors.New("luggage not found")
+	}
+	_ = repositories.SetLuggageByCodeCache(code, items)
+	return items, nil
 }
 
 // RetrieveLuggage 取件：根据取件码更新状态与取件人/时间
-func RetrieveLuggage(code string, retrievedByUsername string) (models.LuggageItem, error) {
+func RetrieveLuggage(code string, retrievedByUsername string) ([]models.LuggageItem, error) {
 	if code == "" {
-		return models.LuggageItem{}, errors.New("code is empty")
+		return nil, errors.New("code is empty")
 	}
 	if retrievedByUsername == "" {
-		return models.LuggageItem{}, errors.New("retrieved_by is empty")
+		return nil, errors.New("retrieved_by is empty")
 	}
 
 	user, err := repositories.GetUserByUsername(retrievedByUsername)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.LuggageItem{}, errors.New("user not found")
+			return nil, errors.New("user not found")
 		}
-		return models.LuggageItem{}, err
+		return nil, err
 	}
 	if user.Role != "staff" {
-		return models.LuggageItem{}, errors.New("retrieved_by is not staff")
+		return nil, errors.New("retrieved_by is not staff")
 	}
 
-	item, err := repositories.FindLuggageByCode(code)
+	items, err := repositories.FindLuggageByCode(code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.LuggageItem{}, errors.New("luggage not found")
+			return nil, errors.New("luggage not found")
 		}
-		return models.LuggageItem{}, err
+		return nil, err
 	}
-	if item.Status != "stored" {
-		return models.LuggageItem{}, errors.New("luggage is not in stored status")
+	if len(items) == 0 {
+		return nil, errors.New("luggage not found")
+	}
+	storedItems := make([]models.LuggageItem, 0, len(items))
+	for _, item := range items {
+		if item.Status == "stored" {
+			storedItems = append(storedItems, item)
+		}
+	}
+	if len(storedItems) == 0 {
+		return nil, errors.New("luggage is not in stored status")
 	}
 
-	if err := repositories.UpdateLuggageRetrieved(item.ID, user.Username); err != nil {
-		return models.LuggageItem{}, err
+	for _, item := range storedItems {
+		if err := repositories.UpdateLuggageRetrieved(item.ID, user.Username); err != nil {
+			return nil, err
+		}
+		// 写入取件历史
+		history := models.LuggageHistory{
+			LuggageID:     item.ID,
+			GuestName:     item.GuestName,
+			ContactPhone:  item.ContactPhone,
+			ContactEmail:  item.ContactEmail,
+			Description:   item.Description,
+			Quantity:      item.Quantity,
+			SpecialNotes:  item.SpecialNotes,
+			PhotoURL:      item.PhotoURL,
+			PhotoURLs:     item.PhotoURLs,
+			HotelID:       item.HotelID,
+			StoreroomID:   item.StoreroomID,
+			RetrievalCode: item.RetrievalCode,
+			QRCodeURL:     item.QRCodeURL,
+			Status:        "retrieved",
+			StoredBy:      item.StoredBy,
+			RetrievedBy:   user.Username,
+			StoredAt:      item.StoredAt,
+			RetrievedAt:   time.Now(),
+		}
+		if err := repositories.CreateLuggageHistory(&history); err != nil {
+			return nil, err
+		}
+		// 已取件的行李从数据库中删除（历史已保留）
+		if err := repositories.DeleteLuggageByID(item.ID); err != nil {
+			return nil, err
+		}
 	}
 	_ = repositories.DeleteLuggageByCodeCache(code)
 
-	// 写入取件历史
-	history := models.LuggageHistory{
-		LuggageID:     item.ID,
-		GuestName:     item.GuestName,
-		ContactPhone:  item.ContactPhone,
-		ContactEmail:  item.ContactEmail,
-		Description:   item.Description,
-		Quantity:      item.Quantity,
-		SpecialNotes:  item.SpecialNotes,
-		PhotoURL:      item.PhotoURL,
-		PhotoURLs:     item.PhotoURLs,
-		HotelID:       item.HotelID,
-		StoreroomID:   item.StoreroomID,
-		RetrievalCode: item.RetrievalCode,
-		QRCodeURL:     item.QRCodeURL,
-		Status:        "retrieved",
-		StoredBy:      item.StoredBy,
-		RetrievedBy:   user.Username,
-		StoredAt:      item.StoredAt,
-		RetrievedAt:   time.Now(),
-	}
-	if err := repositories.CreateLuggageHistory(&history); err != nil {
-		return models.LuggageItem{}, err
-	}
-
-	// 已取件的行李从数据库中删除（历史已保留）
-	if err := repositories.DeleteLuggageByID(item.ID); err != nil {
-		return models.LuggageItem{}, err
-	}
-
-	return item, nil
+	return storedItems, nil
 }
 
 // ListLuggageByUser 获取用户寄存单列表
@@ -314,14 +329,17 @@ func GetLuggageDetailByCode(code string) (models.LuggageItem, error) {
 	if code == "" {
 		return models.LuggageItem{}, errors.New("code is empty")
 	}
-	item, err := repositories.FindLuggageByCode(code)
+	items, err := repositories.FindLuggageByCode(code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.LuggageItem{}, errors.New("luggage not found")
 		}
 		return models.LuggageItem{}, err
 	}
-	return item, nil
+	if len(items) == 0 {
+		return models.LuggageItem{}, errors.New("luggage not found")
+	}
+	return items[0], nil
 }
 
 // ListLuggageDetailByPhone 按客人手机号查询寄存单详情列表
@@ -477,16 +495,6 @@ func UpdateLuggageCode(id int64, code string) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("luggage not found")
 		}
-		return err
-	}
-
-	existing, err := repositories.FindLuggageByCode(code)
-	if err == nil {
-		if existing.ID != item.ID {
-			return errors.New("retrieval code already exists")
-		}
-	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 

@@ -5,11 +5,11 @@ import (
 	"math/big"
 )
 
-// GenerateCode 生成指定长度的取件码（由大写字母和数字组成）
+// GenerateCode 生成指定长度的取件码（仅数字）
 func GenerateCode(length int) (string, error) {
-	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // 去除易混淆字符
+	const charset = "0123456789"
 	if length <= 0 {
-		length = 8
+		length = 6
 	}
 
 	code := make([]byte, length)

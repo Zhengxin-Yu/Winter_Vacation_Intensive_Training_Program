@@ -13,6 +13,7 @@ import (
 
 	"hotel_luggage/internal/repositories"
 	"hotel_luggage/internal/services"
+	"hotel_luggage/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,9 +28,20 @@ type CreateLuggageRequest struct {
 	SpecialNotes string `json:"special_notes"`                   // 特殊备注
 	PhotoURL     string `json:"photo_url"`                       // 照片URL（可选）
 	PhotoURLs    []string `json:"photo_urls"`                    // 多张照片URL（可选）
-	StoreroomID  int64  `json:"storeroom_id" binding:"required"` // 寄存室ID
+	StoreroomID  int64  `json:"storeroom_id"` // 寄存室ID（单件模式必填）
 	StaffName    string `json:"staff_name"`                      // 操作员用户名（可选，不传则用登录账号）
 	QRCodeURL    string `json:"qr_code_url"`                     // 二维码URL（可选）
+	Items        []CreateLuggageItemRequest `json:"items"`       // 多件行李（可选）
+}
+
+// CreateLuggageItemRequest 单件行李（用于多件寄存）
+type CreateLuggageItemRequest struct {
+	StoreroomID  int64    `json:"storeroom_id" binding:"required"`
+	Description  string   `json:"description"`
+	Quantity     int      `json:"quantity"`
+	SpecialNotes string   `json:"special_notes"`
+	PhotoURL     string   `json:"photo_url"`
+	PhotoURLs    []string `json:"photo_urls"`
 }
 
 // CreateLuggage 处理行李寄存请求
@@ -51,6 +63,82 @@ func CreateLuggage(c *gin.Context) {
 	if req.StaffName == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "missing user info",
+		})
+		return
+	}
+	if len(req.Items) > 0 {
+		sharedCode := ""
+		for i := 0; i < 5; i++ {
+			codeCandidate, err := utils.GenerateCode(6)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "generate retrieval code failed",
+					"error":   err.Error(),
+				})
+				return
+			}
+			exists, err := repositories.RetrievalCodeExists(codeCandidate)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "generate retrieval code failed",
+					"error":   err.Error(),
+				})
+				return
+			}
+			if !exists {
+				sharedCode = codeCandidate
+				break
+			}
+		}
+		if sharedCode == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "generate retrieval code failed",
+				"error":   "failed to generate unique retrieval code",
+			})
+			return
+		}
+
+		items := make([]gin.H, 0, len(req.Items))
+		for _, it := range req.Items {
+			created, err := services.CreateLuggage(services.CreateLuggageRequest{
+				GuestName:    req.GuestName,
+				ContactPhone: req.ContactPhone,
+				ContactEmail: req.ContactEmail,
+				Description:  it.Description,
+				Quantity:     it.Quantity,
+				SpecialNotes: it.SpecialNotes,
+				PhotoURL:     it.PhotoURL,
+				PhotoURLs:    it.PhotoURLs,
+				RetrievalCode: sharedCode,
+				StoreroomID:  it.StoreroomID,
+				StaffName:    req.StaffName,
+				QRCodeURL:    req.QRCodeURL,
+			})
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "create luggage failed",
+					"error":   err.Error(),
+				})
+				return
+			}
+			items = append(items, gin.H{
+				"luggage_id":   created.ID,
+				"storeroom_id": created.StoreroomID,
+				"photo_url":    created.PhotoURL,
+				"photo_urls":   created.PhotoURLs,
+			})
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "create luggage success",
+			"retrieval_code": sharedCode,
+			"items":          items,
+		})
+		return
+	}
+	if req.StoreroomID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request",
+			"error":   "storeroom_id is required",
 		})
 		return
 	}
@@ -111,7 +199,7 @@ func QueryLuggageByUserInfo(c *gin.Context) {
 // GET /api/luggage/by_code?code=XXXX
 func QueryLuggageByCode(c *gin.Context) {
 	code := c.Query("code")
-	item, err := services.FindLuggageByCode(code)
+	items, err := services.FindLuggageByCode(code)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "query luggage failed",
@@ -119,9 +207,14 @@ func QueryLuggageByCode(c *gin.Context) {
 		})
 		return
 	}
+	var singleItem interface{} = nil
+	if len(items) == 1 {
+		singleItem = items[0]
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "query luggage success",
-		"item":    item,
+		"items":   items,
+		"item":    singleItem,
 	})
 }
 
@@ -158,7 +251,7 @@ func RetrieveLuggage(c *gin.Context) {
 		return
 	}
 
-	item, err := services.RetrieveLuggage(req.Code, req.RetrievedBy)
+	items, err := services.RetrieveLuggage(req.Code, req.RetrievedBy)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "retrieve luggage failed",
@@ -166,12 +259,21 @@ func RetrieveLuggage(c *gin.Context) {
 		})
 		return
 	}
-
+	luggageIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		luggageIDs = append(luggageIDs, item.ID)
+	}
+	var singleID interface{} = nil
+	if len(luggageIDs) == 1 {
+		singleID = luggageIDs[0]
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "retrieve luggage success",
-		"luggage_id":    item.ID,
-		"status":        item.Status,
-		"retrieved_by":  req.RetrievedBy,
+		"message":         "retrieve luggage success",
+		"retrieval_code":  req.Code,
+		"retrieved_by":    req.RetrievedBy,
+		"retrieved_count": len(items),
+		"luggage_ids":     luggageIDs,
+		"luggage_id":      singleID,
 	})
 }
 
@@ -188,7 +290,7 @@ func CheckoutLuggageByCode(c *gin.Context) {
 		return
 	}
 
-	item, err := services.RetrieveLuggage(code, retrievedBy)
+	items, err := services.RetrieveLuggage(code, retrievedBy)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "checkout failed",
@@ -196,10 +298,20 @@ func CheckoutLuggageByCode(c *gin.Context) {
 		})
 		return
 	}
-
+	luggageIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		luggageIDs = append(luggageIDs, item.ID)
+	}
+	var singleID interface{} = nil
+	if len(luggageIDs) == 1 {
+		singleID = luggageIDs[0]
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "checkout success",
-		"luggage_id": item.ID,
+		"message":         "checkout success",
+		"retrieval_code":  code,
+		"retrieved_count": len(items),
+		"luggage_ids":     luggageIDs,
+		"luggage_id":      singleID,
 	})
 }
 
