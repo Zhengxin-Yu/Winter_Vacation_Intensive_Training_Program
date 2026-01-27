@@ -16,7 +16,7 @@ set MINIO_ENDPOINT=minio.2huo.tech
 set MINIO_ACCESS_KEY=i8IuD8lJYxE5kAL1HOwS
 set MINIO_SECRET_KEY=lAfdJNMqAQDmNrK8peuIwu5un6PFI0EtgWlae7jv
 set MINIO_USE_SSL=true
-set MINIO_BUCKET_NAME=traning-hotel
+set MINIO_BUCKET_NAME=training-hotel
 
 REM JWT secret
 set JWT_SECRET=your-secret-key-change-in-production

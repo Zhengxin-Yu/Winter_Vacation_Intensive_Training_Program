@@ -27,11 +27,11 @@ func Home(c *gin.Context) {
 			{"name": "取件码列表（用户）", "method": "GET", "path": "/pickup-codes"},
 			{"name": "取件码列表（手机号）", "method": "GET", "path": "/pickup-codes/by-phone"},
 			{"name": "寄存室列表", "method": "GET", "path": "/storerooms"},
-			{"name": "创建寄存室", "method": "POST", "path": "/storerooms"},
-			{"name": "删除寄存室", "method": "DELETE", "path": "/storerooms/:id"},
-			{"name": "寄存室状态更新", "method": "PUT", "path": "/storerooms/:id/status"},
-			{"name": "行李迁移", "method": "POST", "path": "/storerooms/migrate"},
-			{"name": "二维码展示", "method": "GET", "path": "/qr/:code"},
+		{"name": "创建寄存室", "method": "POST", "path": "/storerooms"},
+		{"name": "删除寄存室", "method": "DELETE", "path": "/storerooms/:id"},
+		{"name": "寄存室状态更新", "method": "PUT", "path": "/storerooms/:id/status"},
+		{"name": "寄存信息修改（含寄存室迁移）", "method": "PUT", "path": "/luggage/:id"},
+		{"name": "二维码展示", "method": "GET", "path": "/qr/:code"},
 		},
 	})
 }

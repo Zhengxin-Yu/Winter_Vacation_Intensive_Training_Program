@@ -15,18 +15,18 @@ import (
 
 // CreateLuggageRequest 创建行李寄存的业务输入
 type CreateLuggageRequest struct {
-	GuestName    string
-	ContactPhone string
-	ContactEmail string
-	Description  string
-	Quantity     int
-	SpecialNotes string
-	PhotoURL     string
-	PhotoURLs    []string
+	GuestName     string
+	ContactPhone  string
+	ContactEmail  string
+	Description   string
+	Quantity      int
+	SpecialNotes  string
+	PhotoURL      string
+	PhotoURLs     []string
 	RetrievalCode string
-	StoreroomID  int64
-	StaffName    string
-	QRCodeURL    string
+	StoreroomID   int64
+	StaffName     string
+	QRCodeURL     string
 }
 
 // CreateLuggage 生成寄存记录并自动生成取件码
@@ -376,10 +376,11 @@ type UpdateLuggageInfoRequest struct {
 	SpecialNotes *string
 	PhotoURL     *string
 	PhotoURLs    *[]string
+	StoreroomID  *int64 // 新增：支持修改寄存室（迁移）
 	UpdatedBy    string
 }
 
-// UpdateLuggageInfo 修改寄存信息（不包含寄存室迁移）
+// UpdateLuggageInfo 修改寄存信息（包含寄存室迁移）
 func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 	if id <= 0 {
 		return errors.New("invalid luggage id")
@@ -391,6 +392,37 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 			return errors.New("luggage not found")
 		}
 		return err
+	}
+
+	// 如果要修改寄存室，需要验证目标寄存室
+	if req.StoreroomID != nil && *req.StoreroomID != item.StoreroomID {
+		// 验证目标寄存室是否存在
+		targetRoom, err := repositories.GetStoreroomByID(*req.StoreroomID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("target storeroom not found")
+			}
+			return err
+		}
+
+		// 验证寄存室是否属于同一酒店
+		if targetRoom.HotelID != item.HotelID {
+			return errors.New("storeroom hotel mismatch")
+		}
+
+		// 验证寄存室是否可用
+		if !targetRoom.IsActive {
+			return errors.New("target storeroom is inactive")
+		}
+
+		// 验证寄存室是否已满
+		count, err := repositories.CountStoredByStoreroom(*req.StoreroomID)
+		if err != nil {
+			return err
+		}
+		if count >= int64(targetRoom.Capacity) {
+			return errors.New("target storeroom is full")
+		}
 	}
 
 	updates := map[string]interface{}{}
@@ -430,11 +462,15 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 			updates["photo_url"] = ""
 		}
 	}
+	if req.StoreroomID != nil {
+		updates["storeroom_id"] = *req.StoreroomID
+	}
 
 	if err := repositories.UpdateLuggageInfo(id, updates); err != nil {
 		return err
 	}
 
+	// 记录修改历史
 	updated := item
 	if req.GuestName != nil {
 		updated.GuestName = *req.GuestName
@@ -464,6 +500,9 @@ func UpdateLuggageInfo(id int64, req UpdateLuggageInfoRequest) error {
 		} else {
 			updated.PhotoURL = ""
 		}
+	}
+	if req.StoreroomID != nil {
+		updated.StoreroomID = *req.StoreroomID
 	}
 
 	oldData, _ := json.Marshal(item)

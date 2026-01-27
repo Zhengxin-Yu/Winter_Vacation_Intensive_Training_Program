@@ -1,6 +1,6 @@
 # 酒店行李寄存系统（后端）
 
-基于 Go + Gin + GORM 的酒店行李寄存后端服务，提供用户登录、行李寄存、取件码管理、寄存室管理、行李迁移等功能接口。
+基于 Go + Gin + GORM 的酒店行李寄存后端服务，提供用户登录、行李寄存、取件码管理、寄存室管理、寄存信息修改（含寄存室迁移）等功能接口。
 
 ## 功能概览
 - 用户登录（bcrypt 校验）
@@ -11,10 +11,10 @@
 - 寄存单详情（按 ID/取件码/手机号）
 - 取件功能（更新状态/取件人/取件时间）
 - 寄存室管理（列表/创建/删除/状态更新）
-- 行李迁移（更新寄存室 + 迁移日志）
+- 寄存信息修改（支持修改基本信息和寄存室迁移，自动记录修改历史）
 - 二维码生成与展示（PNG）
 - 首页功能入口（接口清单）
-- 修改寄存信息/取件码
+- 修改取件码
 - 行李绑定（将行李绑定到用户）
 
 ## 环境依赖
@@ -132,7 +132,7 @@ redis.set( , , )
 - `POST /api/luggage/:id/checkout` 确认取件（id 为取件码，取件人自动使用登录账号）
 - `GET /api/luggage/:id/checkout` 获取当前酒店有行李在存的客人名单
 - `GET /api/luggage/list/by_guest_name` 查询某客人正在寄存的行李
-- `PUT /api/luggage/:id` 修改寄存信息
+- `PUT /api/luggage/:id` 修改寄存信息（支持修改基本信息和寄存室迁移，自动验证目标寄存室并记录修改历史）
 - `GET /api/luggage/storerooms` 获取当前酒店所有寄存室
 - `GET /api/luggage/storerooms/:id/orders` 获取该寄存室所有行李订单
 - `POST /api/luggage/storerooms` 增加寄存室（自动使用当前用户的 hotel_id）
@@ -192,24 +192,29 @@ curl -X POST http://localhost:8080/api/login ^
 }
 ```
 
-### 修改寄存（PUT /api/luggage/:id）
+### 修改寄存信息（PUT /api/luggage/:id）
+
+支持修改基本信息和寄存室迁移（可选参数）：
+
 ```json
 {
+  "guest_name": "张三",
+  "contact_phone": "13800138000",
   "description": "黑色行李箱",
+  "quantity": 2,
+  "storeroom_id": 5,
+  "special_notes": "易碎物品",
   "photo_url": "http://example.com/photo.jpg"
 }
 ```
 
+**说明**：
+- 所有字段均为可选，只传需要修改的字段
+- 如果提供 `storeroom_id`，系统会自动验证目标寄存室（是否存在、是否属于同一酒店、是否可用、是否已满）
+- 所有修改操作都会自动记录到修改历史表，包含修改前后的数据快照
+
 ### 取件
 无需 Body，取件人自动使用当前登录账号。
-
-### 行李迁移
-```json
-{
-  "to_storeroom_id": 2,
-  "migrated_by": "staff_user"
-}
-```
 
 ### 创建寄存室
 ```json
@@ -257,17 +262,30 @@ curl -X POST http://localhost:8080/api/luggage/取件码/checkout ^
   -H "Authorization: Bearer <token>"
 ```
 
-### 行李迁移
+### 修改寄存信息（含寄存室迁移）
 ```bat
-curl -X POST http://localhost:8080/api/luggage/1/transfer ^
+# 只修改基本信息
+curl -X PUT http://localhost:8080/api/luggage/1 ^
   -H "Content-Type: application/json" ^
   -H "Authorization: Bearer <token>" ^
-  -d "{\"to_storeroom_id\":2,\"migrated_by\":\"用户名\"}"
+  -d "{\"guest_name\":\"李四\",\"quantity\":3}"
+
+# 迁移到新的寄存室
+curl -X PUT http://localhost:8080/api/luggage/1 ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"storeroom_id\":5}"
+
+# 同时修改信息和迁移寄存室
+curl -X PUT http://localhost:8080/api/luggage/1 ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer <token>" ^
+  -d "{\"guest_name\":\"王五\",\"storeroom_id\":5,\"special_notes\":\"已检查物品\"}"
 ```
 
-### 查询迁移历史
+### 查询修改历史
 ```bat
-curl "http://localhost:8080/api/luggage/1/transfers" ^
+curl "http://localhost:8080/api/luggage/logs/updated" ^
   -H "Authorization: Bearer <token>"
 ```
 

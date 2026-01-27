@@ -64,7 +64,7 @@ services:
       MINIO_ACCESS_KEY: "i8IuD8lJYxE5kAL1HOwS"
       MINIO_SECRET_KEY: "lAfdJNMqAQDmNrK8peuIwu5un6PFI0EtgWlae7jv"
       MINIO_USE_SSL: "true"
-      MINIO_BUCKET_NAME: "traning-hotel"
+      MINIO_BUCKET_NAME: "training-hotel"
       # JWT 密钥
       JWT_SECRET: "your-secret-key-change-in-production"
     volumes:
