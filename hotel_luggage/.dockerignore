@@ -1,0 +1,33 @@
+# 忽略的文件和目录
+
+# 批处理文件
+*.bat
+
+# 文档文件
+*.md
+
+# Git 相关
+.git
+.gitignore
+
+# 上传的文件（会通过 volume 挂载）
+uploads/*
+
+# 开发工具配置
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.log
+*.tmp
+*.temp
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# Go 相关（这些会在容器内重新生成）
+# go.sum 保留，因为需要它来下载依赖

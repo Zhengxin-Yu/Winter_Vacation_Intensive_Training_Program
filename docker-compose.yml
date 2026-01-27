@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: hotel_luggage_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: hotel_luggage
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 如果有初始化 SQL，可以取消下面的注释
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hotel_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存（可选）
+  redis:
+    image: redis:7-alpine
+    container_name: hotel_luggage_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hotel_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Go 应用
+  app:
+    build:
+      context: ./hotel_luggage
+      dockerfile: Dockerfile
+    container_name: hotel_luggage_app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # 数据库配置（注意：使用容器名作为主机）
+      DB_DSN: "root:123456@tcp(mysql:3306)/hotel_luggage?charset=utf8mb4&parseTime=True&loc=Local"
+      # Redis 配置
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: ""
+      REDIS_DB: "0"
+      # MinIO 配置（可选，如果不使用可以删除）
+      MINIO_ENDPOINT: "minio.2huo.tech"
+      MINIO_ACCESS_KEY: "i8IuD8lJYxE5kAL1HOwS"
+      MINIO_SECRET_KEY: "lAfdJNMqAQDmNrK8peuIwu5un6PFI0EtgWlae7jv"
+      MINIO_USE_SSL: "true"
+      MINIO_BUCKET_NAME: "traning-hotel"
+      # JWT 密钥
+      JWT_SECRET: "your-secret-key-change-in-production"
+    volumes:
+      # 挂载 uploads 目录到主机（持久化本地上传的文件）
+      - ./hotel_luggage/uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hotel_network
+
+# 数据卷（持久化数据）
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# 网络（容器间通信）
+networks:
+  hotel_network:
+    driver: bridge

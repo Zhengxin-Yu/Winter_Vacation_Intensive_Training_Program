@@ -22,8 +22,9 @@ func main() {
 	// 初始化 Gin 路由
 	r := router.SetupRouter()
 
-	// 启动服务，监听指定 IP 与端口
-	if err := r.Run("10.154.101.161:8080"); err != nil {
+	// 启动服务，监听所有网络接口的 8080 端口
+	// Docker 容器中使用 0.0.0.0 或 :8080 来监听所有接口
+	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
