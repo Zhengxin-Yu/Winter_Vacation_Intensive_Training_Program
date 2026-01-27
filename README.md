@@ -20,6 +20,8 @@
 ## 环境依赖
 - Go 1.20+
 - MySQL 5.7/8.0
+- Redis（可选，用于缓存）
+- MinIO（可选，用于对象存储）
 
 ## 目录结构
 ```
@@ -86,6 +88,20 @@ set "REDIS_ADDR=127.0.0.1:6379"
 set "REDIS_PASSWORD="
 set "REDIS_DB=0"
 ```
+
+可选：配置 MinIO（用于对象存储）
+```bat
+set "MINIO_ENDPOINT=localhost:9000"
+set "MINIO_ACCESS_KEY=minioadmin"
+set "MINIO_SECRET_KEY=minioadmin"
+set "MINIO_USE_SSL=false"
+set "MINIO_BUCKET_NAME=hotel-luggage"
+```
+
+**MinIO 说明**：
+- MinIO 是专业的对象存储服务，用于存储上传的图片
+- 如果未配置或连接失败，系统会自动降级到本地文件存储
+- 详细配置请参考：[MinIO配置说明.md](./MinIO配置说明.md)
 
 ### 3) 启动服务
 ```bat

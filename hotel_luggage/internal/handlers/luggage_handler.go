@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -11,27 +13,29 @@ import (
 	"strconv"
 	"time"
 
+	"hotel_luggage/configs"
 	"hotel_luggage/internal/repositories"
 	"hotel_luggage/internal/services"
 	"hotel_luggage/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 )
 
 // CreateLuggageRequest 行李寄存请求结构体
 type CreateLuggageRequest struct {
-	GuestName    string `json:"guest_name" binding:"required"`   // 客人用户名
-	ContactPhone string `json:"contact_phone"`                   // 联系电话
-	ContactEmail string `json:"contact_email"`                   // 联系邮箱
-	Description  string `json:"description"`                     // 行李描述
-	Quantity     int    `json:"quantity"`                        // 行李数量
-	SpecialNotes string `json:"special_notes"`                   // 特殊备注
-	PhotoURL     string `json:"photo_url"`                       // 照片URL（可选）
-	PhotoURLs    []string `json:"photo_urls"`                    // 多张照片URL（可选）
-	StoreroomID  int64  `json:"storeroom_id"` // 寄存室ID（单件模式必填）
-	StaffName    string `json:"staff_name"`                      // 操作员用户名（可选，不传则用登录账号）
-	QRCodeURL    string `json:"qr_code_url"`                     // 二维码URL（可选）
-	Items        []CreateLuggageItemRequest `json:"items"`       // 多件行李（可选）
+	GuestName    string                     `json:"guest_name" binding:"required"` // 客人用户名
+	ContactPhone string                     `json:"contact_phone"`                 // 联系电话
+	ContactEmail string                     `json:"contact_email"`                 // 联系邮箱
+	Description  string                     `json:"description"`                   // 行李描述
+	Quantity     int                        `json:"quantity"`                      // 行李数量
+	SpecialNotes string                     `json:"special_notes"`                 // 特殊备注
+	PhotoURL     string                     `json:"photo_url"`                     // 照片URL（可选）
+	PhotoURLs    []string                   `json:"photo_urls"`                    // 多张照片URL（可选）
+	StoreroomID  int64                      `json:"storeroom_id"`                  // 寄存室ID（单件模式必填）
+	StaffName    string                     `json:"staff_name"`                    // 操作员用户名（可选，不传则用登录账号）
+	QRCodeURL    string                     `json:"qr_code_url"`                   // 二维码URL（可选）
+	Items        []CreateLuggageItemRequest `json:"items"`                         // 多件行李（可选）
 }
 
 // CreateLuggageItemRequest 单件行李（用于多件寄存）
@@ -101,18 +105,18 @@ func CreateLuggage(c *gin.Context) {
 		items := make([]gin.H, 0, len(req.Items))
 		for _, it := range req.Items {
 			created, err := services.CreateLuggage(services.CreateLuggageRequest{
-				GuestName:    req.GuestName,
-				ContactPhone: req.ContactPhone,
-				ContactEmail: req.ContactEmail,
-				Description:  it.Description,
-				Quantity:     it.Quantity,
-				SpecialNotes: it.SpecialNotes,
-				PhotoURL:     it.PhotoURL,
-				PhotoURLs:    it.PhotoURLs,
+				GuestName:     req.GuestName,
+				ContactPhone:  req.ContactPhone,
+				ContactEmail:  req.ContactEmail,
+				Description:   it.Description,
+				Quantity:      it.Quantity,
+				SpecialNotes:  it.SpecialNotes,
+				PhotoURL:      it.PhotoURL,
+				PhotoURLs:     it.PhotoURLs,
 				RetrievalCode: sharedCode,
-				StoreroomID:  it.StoreroomID,
-				StaffName:    req.StaffName,
-				QRCodeURL:    req.QRCodeURL,
+				StoreroomID:   it.StoreroomID,
+				StaffName:     req.StaffName,
+				QRCodeURL:     req.QRCodeURL,
 			})
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -207,14 +211,9 @@ func QueryLuggageByCode(c *gin.Context) {
 		})
 		return
 	}
-	var singleItem interface{} = nil
-	if len(items) == 1 {
-		singleItem = items[0]
-	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "query luggage success",
 		"items":   items,
-		"item":    singleItem,
 	})
 }
 
@@ -355,7 +354,6 @@ func GetCheckoutInfoByCode(c *gin.Context) {
 		"items":   items,
 	})
 }
-
 
 // ListLuggageByUser 获取当前酒店所有已存放行李的客人姓名（去重）
 // GET /api/luggage/list
@@ -623,13 +621,13 @@ func UpdateLuggageInfo(c *gin.Context) {
 	}
 
 	var req struct {
-		GuestName    *string `json:"guest_name"`
-		ContactPhone *string `json:"contact_phone"`
-		ContactEmail *string `json:"contact_email"`
-		Description  *string `json:"description"`
-		Quantity     *int    `json:"quantity"`
-		SpecialNotes *string `json:"special_notes"`
-		PhotoURL     *string `json:"photo_url"`
+		GuestName    *string   `json:"guest_name"`
+		ContactPhone *string   `json:"contact_phone"`
+		ContactEmail *string   `json:"contact_email"`
+		Description  *string   `json:"description"`
+		Quantity     *int      `json:"quantity"`
+		SpecialNotes *string   `json:"special_notes"`
+		PhotoURL     *string   `json:"photo_url"`
 		PhotoURLs    *[]string `json:"photo_urls"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -840,15 +838,7 @@ func Upload(c *gin.Context) {
 	}
 
 	now := time.Now()
-	subDir := filepath.Join("uploads", now.Format("2006"), now.Format("01"))
-	if err := os.MkdirAll(subDir, 0o755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "upload failed",
-			"error":   err.Error(),
-		})
-		return
-	}
-
+	// 生成随机文件名
 	nameBytes := make([]byte, 16)
 	if _, err := rand.Read(nameBytes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -858,6 +848,71 @@ func Upload(c *gin.Context) {
 		return
 	}
 	fileName := hex.EncodeToString(nameBytes) + ext
+	objectName := fmt.Sprintf("uploads/%s/%s/%s", now.Format("2006"), now.Format("01"), fileName)
+
+	// 优先使用MinIO上传
+	if repositories.MinIOClient != nil {
+		fileReader, err := file.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "upload failed",
+				"error":   "cannot open file",
+			})
+			return
+		}
+		defer fileReader.Close()
+
+		contentType := file.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = mime.TypeByExtension(ext)
+		}
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		// 设置30秒超时（考虑网络延迟和文件大小）
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		
+		_, err = repositories.MinIOClient.PutObject(ctx, repositories.MinIOBucketName, objectName, fileReader, file.Size, minio.PutObjectOptions{
+			ContentType: contentType,
+		})
+		if err != nil {
+			// MinIO上传失败，降级到本地存储
+			log.Printf("⚠️  MinIO上传失败(超时或网络错误)，降级到本地存储: %v", err)
+		} else {
+			// MinIO上传成功，返回MinIO URL
+			minioConfig := configs.LoadMinIOConfig()
+			scheme := "http"
+			if minioConfig.UseSSL {
+				scheme = "https"
+			}
+			fullURL := fmt.Sprintf("%s://%s/%s/%s", scheme, minioConfig.Endpoint, repositories.MinIOBucketName, objectName)
+
+			c.JSON(http.StatusOK, gin.H{
+				"message":       "upload success (MinIO)",
+				"url":           fullURL,
+				"object_name":   objectName,
+				"content_type":  contentType,
+				"size":          file.Size,
+				"file_name":     fileName,
+				"max_size_byte": maxSize,
+				"storage":       "minio",
+			})
+			return
+		}
+	}
+
+	// 降级方案：本地文件存储
+	subDir := filepath.Join("uploads", now.Format("2006"), now.Format("01"))
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "upload failed",
+			"error":   err.Error(),
+		})
+		return
+	}
+
 	savePath := filepath.Join(subDir, fileName)
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -882,13 +937,14 @@ func Upload(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "upload success",
+		"message":       "upload success (Local)",
 		"url":           fullURL,
 		"relative_url":  relativeURL,
 		"content_type":  contentType,
 		"size":          file.Size,
 		"file_name":     fileName,
 		"max_size_byte": maxSize,
+		"storage":       "local",
 	})
 }
 

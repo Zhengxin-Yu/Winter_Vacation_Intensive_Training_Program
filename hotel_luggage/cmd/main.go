@@ -16,6 +16,8 @@ func main() {
 	repositories.InitDB()
 	// 初始化 Redis（失败则自动降级）
 	repositories.InitRedis()
+	// 初始化 MinIO（失败则自动降级到本地存储）
+	repositories.InitMinIO()
 
 	// 初始化 Gin 路由
 	r := router.SetupRouter()

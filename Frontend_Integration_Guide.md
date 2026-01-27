@@ -201,7 +201,7 @@ Authorization: Bearer <token>
 |---|---|---|---|
 | `code` | string | 是 | 取件码（`retrieval_code`） |
 
-**响应（200）**（`item` 仅在返回单条时提供，多条时为 `null`）：
+**响应（200）**：
 ```json
 {
   "message": "query luggage success",
@@ -216,17 +216,7 @@ Authorization: Bearer <token>
       "photo_url": "/uploads/2026/01/xxx.jpg",
       "photo_urls": ["/uploads/2026/01/xxx.jpg", "/uploads/2026/01/yyy.jpg"]
     }
-  ],
-  "item": {
-    "id": 1,
-    "guest_name": "张三",
-    "contact_phone": "13800000000",
-    "storeroom_id": 1,
-    "retrieval_code": "Z75BDSRH",
-    "status": "stored",
-    "photo_url": "/uploads/2026/01/xxx.jpg",
-    "photo_urls": ["/uploads/2026/01/xxx.jpg", "/uploads/2026/01/yyy.jpg"]
-  }
+  ]
 }
 ```
 
